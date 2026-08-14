@@ -16,7 +16,7 @@ from dataclasses import dataclass
 @dataclass
 class GPTConfig:
     block_size: int = 1024
-    vocab_size: int = 5027
+    vocab_size: int = 50304
     n_layer: int = 12
     n_embd: int = 768
     n_head: int = 12
@@ -149,7 +149,7 @@ class GPT(nn.Module):
             "gpt2-xl":     dict(n_embd=1600, n_head=25, n_layer=48),
         }[model_type]
 
-        config_args["vocab_size"] = 50257
+        config_args["vocab_size"] = 50304
         config_args["block_size"] = 1024
 
         config = GPTConfig(**config_args)
@@ -167,11 +167,21 @@ class GPT(nn.Module):
         transposed = ['attn.c_attn.weight', 'attn.c_proj.weight', 'mlp.c_fc.weight', 'mlp.c_proj.weight']
         assert len(sd_keys_hf) == len(sd_keys)
 
+        padded_vocab = ['transformer.wte.weight', 'lm_head.weight']
+
         for k in sd_keys_hf:
             if any(k.endswith(w) for w in transposed):
                 assert sd_hf[k].t().shape == sd[k].shape
                 with torch.no_grad():
                     sd[k].copy_(sd_hf[k].t())
+            elif k in padded_vocab:
+                # hf checkpoint has 50257 rows; our vocab_size is padded to 50304 for
+                # tensor-core alignment, so copy only the real rows and leave the rest
+                # as their random init (dead neurons, never fired at inference)
+                assert sd_hf[k].shape[0] <= sd[k].shape[0]
+                assert sd_hf[k].shape[1:] == sd[k].shape[1:]
+                with torch.no_grad():
+                    sd[k][:sd_hf[k].shape[0]].copy_(sd_hf[k])
             else:
                 assert sd_hf[k].shape == sd[k].shape
                 with torch.no_grad():

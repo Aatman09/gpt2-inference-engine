@@ -34,3 +34,18 @@ Mesh_shape = tells the computer how the gpus organized
    * The "Limit": TP requires massive communication bandwidth (like NVLink).
      Because GPUs must talk during every layer, if your
      internet/interconnect is slow, TP will be much slower than DP.
+
+
+What is CORS - 
+
+today i faced cors error it stands for cross origin Crucially, CORS is not a backend server crash or an API bug—it is the browser's security mechanism working exactly as intended to protect users from unauthorized cross-site data access.
+
+orgin has 3 parts 
+
+protocol - https:// OR http://
+Domain - localhost vs abc.example.com 
+port - 8000 OR 5021
+
+in a backend server if any one of the 3 mismatches than the backend throws a cors error 
+
+you need to explicity add a middleware to allow other origin to allow to request the backend

@@ -1,2 +1,11 @@
 fineweb_shards
 shakespeare_gpt.pth
+__pycache__/
+*.pyc
+
+# python virtualenvs
+.venv/
+
+# local secrets / env files (keep .env.example tracked)
+.env
+.claude/
