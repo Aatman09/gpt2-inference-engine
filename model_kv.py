@@ -16,7 +16,8 @@ from dataclasses import dataclass
 @dataclass
 class GPTConfig:
     block_size: int = 1024
-    vocab_size: int = 50304
+    vocab_size: int = 50304        # padded to a multiple of 64 for matmul alignment
+    real_vocab_size: int = 50257   # actual GPT-2 tokens; rows beyond this are untrained
     n_layer: int = 12
     n_embd: int = 768
     n_head: int = 12
@@ -150,6 +151,7 @@ class GPT(nn.Module):
         }[model_type]
 
         config_args["vocab_size"] = 50304
+        config_args["real_vocab_size"] = 50257
         config_args["block_size"] = 1024
 
         config = GPTConfig(**config_args)
@@ -194,6 +196,11 @@ class GPT(nn.Module):
         logits, kv_caches, _ = self(idx)
         for _ in range(max_new_tokens):
             logits = logits[:, -1, :] / temperature
+            # vocab_size is padded past the real token count for matmul alignment, so the
+            # extra columns are untrained weights that tiktoken cannot decode. Mask them in
+            # logit space (before top_k, so all k slots go to real candidates, and before
+            # softmax, so the surviving probabilities still normalise to 1).
+            logits[:, self.config.real_vocab_size:] = -float('inf')
             if top_k is not None:
                 v, _ = torch.topk(logits, min(top_k, logits.size(-1)))
                 logits[logits < v[:, [-1]]] = -float('Inf')
