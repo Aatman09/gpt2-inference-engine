@@ -1,0 +1,69 @@
+from collections import defaultdict
+from queue import Queue
+from threading import Thread
+
+from transformers import AutoModelForCausalLM , AutoTokenizer , TextIteratorStreamer
+
+from .base import Engine, GenerationParams
+
+
+class HFEngine(Engine):
+    supports_cache_toggle = False
+
+    def __init__(self, model_id : str):
+        self.model = AutoModelForCausalLM.from_pretrained(model_id)
+        self.tokenizer= AutoTokenizer.from_pretrained(model_id)
+        # keyed by session_id so concurrent users on the same deployed instance
+        # don't see each other's turns
+        self.history: dict[str, list] = defaultdict(list)
+        self.model.eval()
+
+    def stream(self , params : GenerationParams):
+        session_history = self.history[params.session_id]
+        message = session_history + [{"role": "user", "content": params.prompt}]
+        text = self.tokenizer.apply_chat_template(message,
+                                                  tokenize = False ,
+                                                  add_generation_prompt = True)
+        inputs = self.tokenizer(text, return_tensors="pt")
+
+        streamer = TextIteratorStreamer(self.tokenizer,
+                                        skip_special_tokens = True,
+                                        skip_prompt=True)
+        kwargs = dict(
+            **inputs,
+            max_new_tokens=params.max_new_tokens,
+            temperature=params.temperature,
+            top_k=params.top_k,
+            do_sample=True,
+            streamer=streamer,
+        )
+
+        # errors raised inside model.generate() happen on the background thread;
+        # hand them back through a queue rather than an instance attribute, since
+        # self._error would be shared/clobbered across concurrent sessions
+        errors: Queue = Queue()
+        thread = Thread(target=self._generate, kwargs=kwargs, args=(errors,))
+        thread.start()
+
+        response = ""
+        for text_chunk in streamer:
+            response += text_chunk
+            yield text_chunk
+
+        thread.join()
+        if not errors.empty():
+            raise errors.get()
+
+        session_history.append({"role": "user", "content": params.prompt})
+        session_history.append({"role": "assistant", "content": response})
+
+    def _generate(self, errors: Queue, **kwargs):
+        try:
+            self.model.generate(**kwargs)
+        except Exception as e:
+            errors.put(e)
+
+    def parameter_count(self) -> int:
+        return sum(p.numel() for p in self.model.parameters())
+
+
