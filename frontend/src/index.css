@@ -144,6 +144,68 @@ body {
   background: var(--bg-main);
 }
 
+.model-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 24px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.model-select {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-family: inherit;
+}
+
+.max-tokens-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.max-tokens-input {
+  width: 64px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 5px 8px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.metrics-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.cache-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.cache-toggle input:disabled {
+  cursor: not-allowed;
+}
+
+.metrics-readout {
+  font-variant-numeric: tabular-nums;
+}
+
 .chat-window.empty-state {
   align-items: center;
   justify-content: center;
@@ -214,6 +276,36 @@ body {
   border-radius: 14px;
 }
 
+.message-bubble p {
+  margin: 0 0 10px;
+}
+
+.message-bubble p:last-child {
+  margin-bottom: 0;
+}
+
+.message-bubble code {
+  background: var(--bg-bubble-user);
+  padding: 2px 5px;
+  border-radius: 4px;
+  font-size: 0.9em;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+.message-bubble pre {
+  background: var(--bg-bubble-user);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  overflow-x: auto;
+  margin: 0 0 10px;
+}
+
+.message-bubble pre code {
+  background: none;
+  padding: 0;
+}
+
 .cursor {
   display: inline-block;
   width: 7px;
@@ -278,4 +370,15 @@ body {
   background: #4a4a4a;
   color: #8a8a8a;
   cursor: default;
+}
+
+.stop-btn {
+  background: #ececec;
+  color: #111;
+  font-size: 12px;
+}
+
+.stop-btn:hover {
+  background: #d94b4b;
+  color: #fff;
 }
