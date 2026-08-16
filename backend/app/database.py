@@ -1,7 +1,7 @@
-from sqlalchemy import ForeignKey , String , Text , text , DateTime , func
-from sqlalchemy.orm import DeclarativeBase , Mapped , mapped_column , relationship
-from sqlalchemy.dialects.postgresql import UUID , JSONB , TIMESTAMP
-from sqlalchemy.ext.asyncio import async_sessionmaker , AsyncSession , create_async_engine 
+from sqlalchemy import String, DateTime, func
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession, create_async_engine
 
 import uuid
 from datetime import datetime
@@ -10,37 +10,42 @@ from starlette.config import Config
 
 # load DATABASE_URL from the .env sitting next to this file, regardless of CWD
 config = Config(str(Path(__file__).resolve().parent / ".env"))
+
+
 class Base(DeclarativeBase):
     pass
 
 
-class User(Base):
-    __tablename__ = "users"
+class Conversation(Base):
+    """Phase 1 (see docs/ROADMAP.md): one row per conversation, JSONB message
+    array -- document-store pattern inside Postgres, no separate DB. No user
+    scoping yet; that's Phase 3 (auth), deliberately deferred."""
 
-    user_id :Mapped[uuid.UUID] = mapped_column(primary_key=True)
-    chat_id : Mapped["Chat"] = relationship(back_populates="users")
-    user_name : Mapped[str] = mapped_column(String(30) , nullable=False)
-    user_email : Mapped[str] = mapped_column(String(30),nullable=False)
-    password : Mapped[str] = mapped_column(String(1024) , nullable=False)
-    created_at : Mapped[datetime] = mapped_column(DateTime(timezone=True) , server_default=func.now())
+    __tablename__ = "conversations"
 
-
-
-class Chat(Base):
-    __tablename__= "chats"
-
-    chat_id : Mapped[uuid.UUID] = mapped_column(primary_key=True)
-    user_id :Mapped["User"] = relationship(back_populates="chats")
-    title : Mapped[str] = mapped_column(default="achat")
-    messages : Mapped[dict] = mapped_column(JSONB)
-    created_at : Mapped[datetime] = mapped_column(DateTime(timezone=True),
-                                                  server_default=func.now())
-    updated_at : Mapped[datetime] = mapped_column(DateTime(timezone=True),
-                                                  server_onupdate= func.now())
-    
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    title: Mapped[str] = mapped_column(String(255), default="New chat")
+    messages: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # server_onupdate is NOT a real auto-update mechanism in plain Postgres --
+    # it only tells SQLAlchemy to re-read the column after an UPDATE, it doesn't
+    # make Postgres compute one (no native ON UPDATE clause, unlike MySQL).
+    # onupdate=func.now() is client-side: SQLAlchemy sets it on every UPDATE
+    # *it* issues, which is fine since all writes to this table go through the app.
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
 
 DATABASE_URL = config("DATABASE_URL")
 engine = create_async_engine(DATABASE_URL)
 
+# expire_on_commit=False: keep loaded attributes usable after commit() without
+# an extra round-trip -- routes return the object's fields in the response
+# right after committing, so refetching on every access would be wasted work
+async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
+
+async def get_db():
+    async with async_session() as session:
+        yield session
