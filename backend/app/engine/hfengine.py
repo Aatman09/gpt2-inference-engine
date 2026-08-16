@@ -1,4 +1,3 @@
-from collections import defaultdict
 from queue import Queue
 from threading import Event, Thread
 
@@ -27,14 +26,10 @@ class HFEngine(Engine):
     def __init__(self, model_id : str):
         self.model = AutoModelForCausalLM.from_pretrained(model_id)
         self.tokenizer= AutoTokenizer.from_pretrained(model_id)
-        # keyed by session_id so concurrent users on the same deployed instance
-        # don't see each other's turns
-        self.history: dict[str, list] = defaultdict(list)
         self.model.eval()
 
     def stream(self , params : GenerationParams):
-        session_history = self.history[params.session_id]
-        message = session_history + [{"role": "user", "content": params.prompt}]
+        message = params.history + [{"role": "user", "content": params.prompt}]
         text = self.tokenizer.apply_chat_template(message,
                                                   tokenize = False ,
                                                   add_generation_prompt = True)
@@ -70,9 +65,6 @@ class HFEngine(Engine):
         thread.join()
         if not errors.empty():
             raise errors.get()
-
-        session_history.append({"role": "user", "content": params.prompt})
-        session_history.append({"role": "assistant", "content": response})
 
     def _generate(self, errors: Queue, **kwargs):
         try:

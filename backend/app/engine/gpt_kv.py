@@ -1,16 +1,14 @@
 """Engine wrapping model_kv.GPT -- the hand-written KV-cache GPT-2.
 
 GPT-2 has no chat template, so history is rendered into one flat "User: ...\\n
-Assistant: ...\\n" string before encoding. This keeps the same session_id /
-history shape as HFEngine, so an instruction-tuned GPT-2 checkpoint can be
-dropped in later without touching this interface.
+Assistant: ...\\n" string before encoding. This keeps the same history shape as
+HFEngine, so an instruction-tuned GPT-2 checkpoint can be dropped in later
+without touching this interface.
 
 use_cache=False takes the naive path: re-run forward() on the whole sequence
 so far at every step, passing no cache, so the ON/OFF toggle produces a real
 speed difference rather than a flag that's silently ignored.
 """
-from collections import defaultdict
-
 import tiktoken
 import torch
 import torch.nn.functional as F
@@ -36,15 +34,14 @@ class GPTKVEngine(Engine):
         self.model.eval()
         self.model.to(device)
         self.device = device
-        self.history: dict[str, list] = defaultdict(list)
 
-    """from the history vector which might be be like session_id : [["role": , "content":] , ["role": , "content": ]]
-        it takes them changes the format and appends the history to the prompt and at the end adds User : the history 
-        Assistant: ___ and sends this string"""
-    def _render_prompt(self, session_id: str, prompt: str) -> str:
-        turns = self.history[session_id]
+    """takes the history (passed in via GenerationParams, loaded from Postgres
+        by the route handler) which looks like [{"role":, "content":}, ...],
+        renders each turn as "Role: content\\n", then adds User: <prompt>
+        Assistant: at the end and sends this string"""
+    def _render_prompt(self, history: list[dict], prompt: str) -> str:
         rendered = "".join(
-            f"{turn['role'].capitalize()}: {turn['content']}\n" for turn in turns
+            f"{turn['role'].capitalize()}: {turn['content']}\n" for turn in history
         )
         rendered += f"User: {prompt}\nAssistant:"
         return rendered
@@ -63,7 +60,7 @@ class GPTKVEngine(Engine):
         return torch.multinomial(probs, num_samples=1)
     """"""
     def stream(self, params: GenerationParams):
-        prompt_text = self._render_prompt(params.session_id, params.prompt)
+        prompt_text = self._render_prompt(params.history, params.prompt)
         tokens = self.enc.encode(prompt_text, allowed_special={"<|endoftext|>"})
         idx = torch.tensor(tokens, dtype=torch.long, device=self.device).unsqueeze(0)
 
@@ -97,10 +94,6 @@ class GPTKVEngine(Engine):
                     yield self.enc.decode([token_id])
                     idx = torch.cat([idx, next_token], dim=1)
 
-        response_text = self.enc.decode(response_tokens)
-        self.history[params.session_id].append({"role": "user", "content": params.prompt})
-        self.history[params.session_id].append({"role": "assistant", "content": response_text})
-        
     """Usesd to count the total_parameters in the model"""
     def parameter_count(self) -> int:
         return sum(p.numel() for p in self.model.parameters())

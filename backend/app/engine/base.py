@@ -6,11 +6,18 @@ GenerationParams shape. The server layer measures latency by timing the gaps
 between yields, so engines stay concerned only with generation, not instrumentation.
 
 All three models (GPT-2, Qwen2.5-0.5B-Instruct, SmolLM2-360M-Instruct) are treated
-as chat models: stream() takes a prompt plus a session_id and each engine keeps its
-own per-session turn history. GPT-2 is pretrained/base today, not finetuned, so its
-"chat" turns are just concatenated text it continues from rather than instruction-
-following in the true sense -- but the interface is intentionally identical so an
-instruction-tuned GPT-2 checkpoint can be swapped in later with no interface change.
+as chat models: stream() takes a prompt plus prior turns (`history`). GPT-2 is
+pretrained/base today, not finetuned, so its "chat" turns are just concatenated
+text it continues from rather than instruction-following in the true sense --
+but the interface is intentionally identical so an instruction-tuned GPT-2
+checkpoint can be swapped in later with no interface change.
+
+History lives in Postgres (see docs/ROADMAP.md Phase 1/2), not in the engine.
+The route handler loads a conversation's `messages` before calling stream() and
+persists the new turns after -- engines are stateless with respect to history,
+which also fixes a real bug the old per-engine in-memory dicts had: since
+EngineRegistry caches one engine instance per model, the same session_id under
+two different models used to see two unrelated histories.
 """
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -22,6 +29,9 @@ from typing import Iterator
 class GenerationParams:
     prompt: str
     session_id: str
+    # prior turns, e.g. [{"role": "user", "content": ...}, {"role": "assistant", ...}],
+    # loaded from Postgres by the route handler before stream() is called
+    history: list[dict] = field(default_factory=list)
     max_new_tokens: int = 128
     temperature: float = 0.8
     top_k: int | None = 50

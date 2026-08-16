@@ -1,5 +1,7 @@
 from pydantic import BaseModel , Field
 from enum import Enum
+from datetime import datetime
+from uuid import UUID
 
 class HealthResponse(BaseModel):
     status : str
@@ -26,3 +28,23 @@ class PredictRequests(BaseModel):
 
 class StopRequest(BaseModel):
     session_id : str
+
+# --- Phase 1: conversation persistence (see docs/ROADMAP.md) ---
+
+class ConversationSummary(BaseModel):
+    """List-view shape -- no messages payload, keeps GET /conversations light."""
+    id : UUID
+    title : str
+    updated_at : datetime
+
+class Conversation(ConversationSummary):
+    """Full shape -- returned by create and get-by-id."""
+    messages : list[dict]
+    created_at : datetime
+
+class CreateConversationRequest(BaseModel):
+    title : str | None = None
+
+class AppendMessageRequest(BaseModel):
+    role : str
+    content : str
