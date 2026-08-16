@@ -13,7 +13,8 @@ following in the true sense -- but the interface is intentionally identical so a
 instruction-tuned GPT-2 checkpoint can be swapped in later with no interface change.
 """
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from threading import Event
 from typing import Iterator
 
 
@@ -26,6 +27,15 @@ class GenerationParams:
     top_k: int | None = 50
     # Only meaningful for engines that report supports_cache_toggle=True.
     use_cache: bool = True
+    # Set by the route handler when the client disconnects (stop button, tab
+    # close, etc). Engines must check this each loop iteration so a cancelled
+    # request actually frees the CPU instead of running to max_new_tokens
+    # regardless -- the free HF Spaces tier can't afford to burn cycles on
+    # generations nobody is reading anymore. default_factory=Event, not
+    # Event(), because a bare mutable default would be one Event shared
+    # across every GenerationParams instance -- cancelling user A's request
+    # would silently cancel user B's too.
+    stop_event: Event = field(default_factory=Event)
 
 
 class Engine(ABC):

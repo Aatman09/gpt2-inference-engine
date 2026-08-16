@@ -23,3 +23,6 @@ class PredictRequests(BaseModel):
     # only honored by GPT2 (the only engine with supports_cache_toggle=True);
     # ignored by the HF-backed models
     use_cache : bool = True
+
+class StopRequest(BaseModel):
+    session_id : str

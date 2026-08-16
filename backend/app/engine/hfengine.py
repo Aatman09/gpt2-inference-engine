@@ -1,10 +1,24 @@
 from collections import defaultdict
 from queue import Queue
-from threading import Thread
+from threading import Event, Thread
 
-from transformers import AutoModelForCausalLM , AutoTokenizer , TextIteratorStreamer
+from transformers import AutoModelForCausalLM , AutoTokenizer , TextIteratorStreamer , StoppingCriteria , StoppingCriteriaList
 
 from .base import Engine, GenerationParams
+
+
+class _StopEventCriteria(StoppingCriteria):
+    """Bridges our GenerationParams.stop_event into transformers' generate()
+    loop -- generate() calls this after every token; returning True halts it.
+    Without this, breaking the consuming `for text_chunk in streamer` loop
+    does NOT stop the background thread's model.generate() call, which keeps
+    running to max_new_tokens regardless and keeps burning CPU."""
+
+    def __init__(self, stop_event: Event):
+        self.stop_event = stop_event
+
+    def __call__(self, input_ids, scores, **kwargs) -> bool:
+        return self.stop_event.is_set()
 
 
 class HFEngine(Engine):
@@ -36,6 +50,7 @@ class HFEngine(Engine):
             top_k=params.top_k,
             do_sample=True,
             streamer=streamer,
+            stopping_criteria=StoppingCriteriaList([_StopEventCriteria(params.stop_event)]),
         )
 
         # errors raised inside model.generate() happen on the background thread;
@@ -47,6 +62,8 @@ class HFEngine(Engine):
 
         response = ""
         for text_chunk in streamer:
+            if params.stop_event.is_set():
+                break
             response += text_chunk
             yield text_chunk
 

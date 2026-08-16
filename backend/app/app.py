@@ -2,6 +2,7 @@ import sys
 import time
 import json
 from pathlib import Path
+from threading import Event
 
 # Point to project root where model_kv.py lives
 project_root = Path(__file__).resolve().parent.parent.parent
@@ -12,7 +13,7 @@ from fastapi import FastAPI, HTTPException, status
 from fastapi.responses import StreamingResponse
 from contextlib import asynccontextmanager
 
-from .schemas import HealthResponse, PredictRequests
+from .schemas import HealthResponse, PredictRequests, StopRequest
 from .engine.base import GenerationParams
 from .engine.registry import EngineRegistry
 
@@ -21,6 +22,13 @@ from fastapi.middleware.cors import CORSMiddleware
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 registry = EngineRegistry(device=device)
+
+# session_id -> stop_event for whichever /generate call is currently in
+# flight for that session, so /stop can find and signal the right one.
+# Only one generation per session_id is expected at a time (the frontend
+# disables the composer while streaming), so a plain dict is enough --
+# no need to track a list of concurrent requests per session.
+_active_generations: dict[str, Event] = {}
 
 
 @asynccontextmanager
@@ -97,6 +105,18 @@ def _generate_events(engine, params: GenerationParams):
     })
 
 
+def _tracked_generate_events(engine, params: GenerationParams):
+    _active_generations[params.session_id] = params.stop_event
+    try:
+        yield from _generate_events(engine, params)
+    finally:
+        # only clear if we're still the current holder -- a fast-follow
+        # request for the same session_id could have already overwritten
+        # this entry with a new stop_event by the time we get here
+        if _active_generations.get(params.session_id) is params.stop_event:
+            del _active_generations[params.session_id]
+
+
 @app.post("/generate")
 def generate(request: PredictRequests):
     try:
@@ -114,6 +134,15 @@ def generate(request: PredictRequests):
     )
 
     return StreamingResponse(
-        _generate_events(engine, params),
+        _tracked_generate_events(engine, params),
         media_type="text/event-stream",
     )
+
+
+@app.post("/stop")
+def stop(request: StopRequest):
+    stop_event = _active_generations.get(request.session_id)
+    if stop_event is None:
+        return {"stopped": False, "reason": "no generation in progress for this session"}
+    stop_event.set()
+    return {"stopped": True}

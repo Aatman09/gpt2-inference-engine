@@ -73,6 +73,8 @@ class GPTKVEngine(Engine):
             if params.use_cache:
                 logits, kv_caches, _ = self.model(idx)
                 for _ in range(params.max_new_tokens):
+                    if params.stop_event.is_set():
+                        break
                     next_token = self._sample(logits, params.temperature, params.top_k)
                     token_id = next_token.item()
                     if token_id == EOT_TOKEN:
@@ -84,6 +86,8 @@ class GPTKVEngine(Engine):
                 # naive path: no cache carried between steps, re-run the full
                 # sequence-so-far every time -- this is the slow comparison arm
                 for _ in range(params.max_new_tokens):
+                    if params.stop_event.is_set():
+                        break
                     logits, _, _ = self.model(idx)
                     next_token = self._sample(logits, params.temperature, params.top_k)
                     token_id = next_token.item()
