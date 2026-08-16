@@ -1,12 +1,26 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Sidebar from "./components/Sidebar";
 import ChatWindow from "./components/ChatWindow";
-import { initialConversations, createConversation, createMessage } from "./mockData";
-import { streamCompletion, stopStream } from "./api";
+import { createMessage } from "./mockData";
+import { streamCompletion, stopStream, createConversation } from "./api";
+
+// Backend Conversation shape (id/title/messages/created_at/updated_at) into
+// the frontend's shape (updatedAt, messages with local ids for React keys).
+function toFrontendConversation(backendConv) {
+  return {
+    id: backendConv.id,
+    title: backendConv.title,
+    updatedAt: backendConv.updated_at,
+    messages: backendConv.messages.map((m) => createMessage(m.role, m.content)),
+  };
+}
 
 export default function App() {
-  const [conversations, setConversations] = useState(initialConversations);
-  const [activeId, setActiveId] = useState(initialConversations[0].id);
+  // Minimal Phase 2 patch: no chat list UI yet (Phase 4), so this holds
+  // exactly one real backend-created conversation at a time instead of
+  // mockData.js's hardcoded seed list.
+  const [conversations, setConversations] = useState([]);
+  const [activeId, setActiveId] = useState(null);
   const [modelName, setModelName] = useState("gpt2");
   const [useCache, setUseCache] = useState(true);
   const [maxNewTokens, setMaxNewTokens] = useState(256);
@@ -17,12 +31,22 @@ export default function App() {
   // the Stop button can cancel the client-side fetch; null when idle
   const abortRef = useRef(null);
 
+  useEffect(() => {
+    handleNewChat();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const activeConversation = conversations.find((c) => c.id === activeId) ?? null;
 
-  const handleNewChat = () => {
-    const conv = createConversation();
-    setConversations((prev) => [conv, ...prev]);
-    setActiveId(conv.id);
+  const handleNewChat = async () => {
+    try {
+      const backendConv = await createConversation();
+      const conv = toFrontendConversation(backendConv);
+      setConversations((prev) => [conv, ...prev]);
+      setActiveId(conv.id);
+    } catch (err) {
+      console.error("Failed to create conversation:", err);
+    }
   };
 
   const appendAssistantMessage = (conversationId, content) => {

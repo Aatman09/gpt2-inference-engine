@@ -82,6 +82,23 @@ export async function streamCompletion(
   }
 }
 
+// Minimal Phase 2 patch: the frontend still only knows how to talk to one
+// conversation at a time (no chat list UI yet -- that's Phase 4), but
+// /generate now requires session_id to be a real conversations.id UUID, so
+// app startup and "New chat" both need to create a real row via this instead
+// of mockData.js's local counter ids ("1", "2", ...).
+export async function createConversation(title) {
+  const res = await fetch(`${API_BASE}/conversations`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(title ? { title } : {}),
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to create conversation: ${res.status}`);
+  }
+  return res.json();
+}
+
 // Tells the backend to stop the in-flight generation for this session (sets
 // its stop_event), so the server frees the CPU instead of running to
 // max_new_tokens for a stream the client already walked away from. Call
