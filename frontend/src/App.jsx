@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import Sidebar from "./components/Sidebar";
 import ChatWindow from "./components/ChatWindow";
+import AuthScreen from "./components/AuthScreen";
 import { createMessage } from "./mockData";
 import { streamCompletion, stopStream, createConversation } from "./api";
+import { useAuth } from "./context/AuthContext";
 
 // Backend Conversation shape (id/title/messages/created_at/updated_at) into
 // the frontend's shape (updatedAt, messages with local ids for React keys).
@@ -16,6 +18,8 @@ function toFrontendConversation(backendConv) {
 }
 
 export default function App() {
+  const { user, loading: authLoading } = useAuth();
+
   // Minimal Phase 2 patch: no chat list UI yet (Phase 4), so this holds
   // exactly one real backend-created conversation at a time instead of
   // mockData.js's hardcoded seed list.
@@ -32,9 +36,12 @@ export default function App() {
   const abortRef = useRef(null);
 
   useEffect(() => {
-    handleNewChat();
+    // wait for the auth check to resolve, and only create a conversation
+    // once actually logged in -- /conversations is auth-protected, so
+    // firing this before `user` exists would just 401
+    if (user) handleNewChat();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [user]);
 
   const activeConversation = conversations.find((c) => c.id === activeId) ?? null;
 
@@ -133,6 +140,12 @@ export default function App() {
     stopStream(conversationId);
     abortRef.current?.abort();
   };
+
+  // still checking for an existing session (GET /auth/me) -- render nothing
+  // rather than flashing the login screen before the check resolves
+  if (authLoading) return null;
+
+  if (!user) return <AuthScreen />;
 
   return (
     <div className="app-shell">

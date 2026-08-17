@@ -31,6 +31,10 @@ export async function streamCompletion(
         use_cache: useCache,
         max_new_tokens: maxNewTokens,
       }),
+      // required for the browser to send the httpOnly auth cookie -- fetch
+      // omits cookies on cross-origin requests by default (Vite :5173 vs
+      // FastAPI :8010 in dev), and /generate is auth-protected
+      credentials: "include",
       signal,
     });
   } catch (err) {
@@ -92,6 +96,7 @@ export async function createConversation(title) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(title ? { title } : {}),
+    credentials: "include",
   });
   if (!res.ok) {
     throw new Error(`Failed to create conversation: ${res.status}`);
@@ -110,5 +115,43 @@ export async function stopStream(sessionId) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ session_id: sessionId }),
+    credentials: "include",
   }).catch(() => {});
+}
+
+// --- Phase 3: auth (see docs/ROADMAP.md) ---
+
+async function _authRequest(path, body) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => ({}));
+    throw new Error(detail.detail || `Request failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export function signup(email, password, name) {
+  return _authRequest("/auth/signup", { email, password, name });
+}
+
+export function login(email, password) {
+  return _authRequest("/auth/login", { email, password });
+}
+
+export async function logout() {
+  await fetch(`${API_BASE}/auth/logout`, { method: "POST", credentials: "include" }).catch(() => {});
+}
+
+// Returns the current user, or null if not authenticated -- used on app
+// mount to decide login-screen vs. chat UI. A 401 here is an expected,
+// routine outcome (not logged in yet), not an error to surface.
+export async function getCurrentUser() {
+  const res = await fetch(`${API_BASE}/auth/me`, { credentials: "include" });
+  if (!res.ok) return null;
+  return res.json();
 }

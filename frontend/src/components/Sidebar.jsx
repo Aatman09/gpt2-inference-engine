@@ -1,4 +1,8 @@
+import { useAuth } from "../context/AuthContext";
+
 export default function Sidebar({ conversations, activeId, onSelect, onNewChat }) {
+  const { user, logout } = useAuth();
+
   return (
     <aside className="sidebar">
       <button className="new-chat-btn" onClick={onNewChat}>
@@ -23,9 +27,12 @@ export default function Sidebar({ conversations, activeId, onSelect, onNewChat }
 
       <div className="sidebar-footer">
         <div className="user-chip">
-          <div className="avatar">A</div>
-          <span>Aries</span>
+          <div className="avatar">{user?.name?.[0]?.toUpperCase() ?? "?"}</div>
+          <span>{user?.name}</span>
         </div>
+        <button className="logout-btn" onClick={logout}>
+          Log out
+        </button>
       </div>
     </aside>
   );
