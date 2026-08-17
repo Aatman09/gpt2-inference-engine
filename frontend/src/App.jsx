@@ -3,7 +3,14 @@ import Sidebar from "./components/Sidebar";
 import ChatWindow from "./components/ChatWindow";
 import AuthScreen from "./components/AuthScreen";
 import { createMessage } from "./mockData";
-import { streamCompletion, stopStream, createConversation } from "./api";
+import {
+  streamCompletion,
+  stopStream,
+  createConversation,
+  listConversations,
+  getConversation,
+  deleteConversation,
+} from "./api";
 import { useAuth } from "./context/AuthContext";
 
 // Backend Conversation shape (id/title/messages/created_at/updated_at) into
@@ -13,16 +20,17 @@ function toFrontendConversation(backendConv) {
     id: backendConv.id,
     title: backendConv.title,
     updatedAt: backendConv.updated_at,
-    messages: backendConv.messages.map((m) => createMessage(m.role, m.content)),
+    // list-view summaries (GET /conversations) have no messages field --
+    // treat as not-yet-hydrated rather than "empty chat"
+    messages: backendConv.messages
+      ? backendConv.messages.map((m) => createMessage(m.role, m.content))
+      : null,
   };
 }
 
 export default function App() {
   const { user, loading: authLoading } = useAuth();
 
-  // Minimal Phase 2 patch: no chat list UI yet (Phase 4), so this holds
-  // exactly one real backend-created conversation at a time instead of
-  // mockData.js's hardcoded seed list.
   const [conversations, setConversations] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [modelName, setModelName] = useState("gpt2");
@@ -36,14 +44,43 @@ export default function App() {
   const abortRef = useRef(null);
 
   useEffect(() => {
-    // wait for the auth check to resolve, and only create a conversation
-    // once actually logged in -- /conversations is auth-protected, so
-    // firing this before `user` exists would just 401
-    if (user) handleNewChat();
+    if (user) loadConversations();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const activeConversation = conversations.find((c) => c.id === activeId) ?? null;
+
+  const loadConversations = async () => {
+    try {
+      const summaries = await listConversations();
+      const convs = summaries.map(toFrontendConversation);
+      setConversations(convs);
+      if (convs.length > 0) {
+        handleSelectConversation(convs[0].id);
+      } else {
+        await handleNewChat();
+      }
+    } catch (err) {
+      console.error("Failed to load conversations:", err);
+    }
+  };
+
+  // Sidebar list entries have no messages (see toFrontendConversation) --
+  // fetch the full conversation lazily on selection rather than eagerly
+  // loading every chat's history up front.
+  const handleSelectConversation = async (id) => {
+    setActiveId(id);
+    const existing = conversations.find((c) => c.id === id);
+    if (existing && existing.messages !== null) return;
+
+    try {
+      const backendConv = await getConversation(id);
+      const hydrated = toFrontendConversation(backendConv);
+      setConversations((prev) => prev.map((c) => (c.id === id ? hydrated : c)));
+    } catch (err) {
+      console.error("Failed to load conversation:", err);
+    }
+  };
 
   const handleNewChat = async () => {
     try {
@@ -54,6 +91,26 @@ export default function App() {
     } catch (err) {
       console.error("Failed to create conversation:", err);
     }
+  };
+
+  const handleDeleteConversation = async (id) => {
+    try {
+      await deleteConversation(id);
+    } catch (err) {
+      console.error("Failed to delete conversation:", err);
+      return;
+    }
+    setConversations((prev) => {
+      const remaining = prev.filter((c) => c.id !== id);
+      if (activeId === id) {
+        if (remaining.length > 0) {
+          handleSelectConversation(remaining[0].id);
+        } else {
+          setActiveId(null);
+        }
+      }
+      return remaining;
+    });
   };
 
   const appendAssistantMessage = (conversationId, content) => {
@@ -152,8 +209,9 @@ export default function App() {
       <Sidebar
         conversations={conversations}
         activeId={activeId}
-        onSelect={setActiveId}
+        onSelect={handleSelectConversation}
         onNewChat={handleNewChat}
+        onDelete={handleDeleteConversation}
       />
       <ChatWindow
         conversation={activeConversation}

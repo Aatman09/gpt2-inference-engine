@@ -80,21 +80,53 @@ body {
 }
 
 .conversation-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   text-align: left;
   background: transparent;
-  border: none;
   color: var(--text);
   padding: 9px 10px;
   border-radius: 8px;
   font-size: 13.5px;
   cursor: pointer;
+}
+
+.conversation-item:hover {
+  background: var(--hover);
+}
+
+.conversation-title {
+  flex: 1;
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.conversation-item:hover {
-  background: var(--hover);
+.conversation-delete {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 5px;
+  color: var(--text-muted);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.conversation-item:hover .conversation-delete {
+  display: flex;
+}
+
+.conversation-delete:hover {
+  background: var(--active);
+  color: #ff8a8a;
 }
 
 .conversation-item.active {

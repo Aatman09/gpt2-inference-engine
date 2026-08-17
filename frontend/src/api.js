@@ -86,11 +86,6 @@ export async function streamCompletion(
   }
 }
 
-// Minimal Phase 2 patch: the frontend still only knows how to talk to one
-// conversation at a time (no chat list UI yet -- that's Phase 4), but
-// /generate now requires session_id to be a real conversations.id UUID, so
-// app startup and "New chat" both need to create a real row via this instead
-// of mockData.js's local counter ids ("1", "2", ...).
 export async function createConversation(title) {
   const res = await fetch(`${API_BASE}/conversations`, {
     method: "POST",
@@ -102,6 +97,36 @@ export async function createConversation(title) {
     throw new Error(`Failed to create conversation: ${res.status}`);
   }
   return res.json();
+}
+
+// Sidebar list view -- no messages payload (kept light server-side too, see
+// ConversationSummary in schemas.py).
+export async function listConversations() {
+  const res = await fetch(`${API_BASE}/conversations`, { credentials: "include" });
+  if (!res.ok) {
+    throw new Error(`Failed to list conversations: ${res.status}`);
+  }
+  return res.json();
+}
+
+// Full conversation including messages -- fetched lazily when a sidebar item
+// is selected, not eagerly for every conversation on load.
+export async function getConversation(id) {
+  const res = await fetch(`${API_BASE}/conversations/${id}`, { credentials: "include" });
+  if (!res.ok) {
+    throw new Error(`Failed to load conversation: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function deleteConversation(id) {
+  const res = await fetch(`${API_BASE}/conversations/${id}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to delete conversation: ${res.status}`);
+  }
 }
 
 // Tells the backend to stop the in-flight generation for this session (sets

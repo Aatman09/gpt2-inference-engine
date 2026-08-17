@@ -1,7 +1,12 @@
 import { useAuth } from "../context/AuthContext";
 
-export default function Sidebar({ conversations, activeId, onSelect, onNewChat }) {
+export default function Sidebar({ conversations, activeId, onSelect, onNewChat, onDelete }) {
   const { user, logout } = useAuth();
+
+  const handleDeleteClick = (e, id) => {
+    e.stopPropagation(); // don't also trigger onSelect on the parent button
+    onDelete(id);
+  };
 
   return (
     <aside className="sidebar">
@@ -14,14 +19,22 @@ export default function Sidebar({ conversations, activeId, onSelect, onNewChat }
           .slice()
           .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
           .map((conv) => (
-            <button
+            <div
               key={conv.id}
               className={`conversation-item${conv.id === activeId ? " active" : ""}`}
               onClick={() => onSelect(conv.id)}
               title={conv.title}
             >
-              {conv.title}
-            </button>
+              <span className="conversation-title">{conv.title}</span>
+              <button
+                className="conversation-delete"
+                onClick={(e) => handleDeleteClick(e, conv.id)}
+                aria-label={`Delete "${conv.title}"`}
+                title="Delete chat"
+              >
+                ×
+              </button>
+            </div>
           ))}
       </nav>
 

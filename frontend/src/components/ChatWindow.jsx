@@ -53,7 +53,7 @@ export default function ChatWindow({
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [conversation?.messages.length, streamingText]);
+  }, [conversation?.messages?.length, streamingText]);
 
   useEffect(() => {
     setDraft("");
@@ -65,6 +65,12 @@ export default function ChatWindow({
         <p>Select a conversation, or start a new one.</p>
       </div>
     );
+  }
+
+  // messages is null while the sidebar summary is being hydrated with its
+  // full history (see App.jsx's handleSelectConversation)
+  if (conversation.messages === null) {
+    return <div className="chat-window empty-state" />;
   }
 
   const handleSend = () => {
