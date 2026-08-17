@@ -9,7 +9,7 @@ project_root = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 import torch
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, Response, status
 from fastapi.responses import StreamingResponse
 from contextlib import asynccontextmanager
 from sqlalchemy import select
@@ -24,8 +24,18 @@ from .schemas import (
     Conversation as ConversationSchema,
     CreateConversationRequest,
     AppendMessageRequest,
+    SignupRequest,
+    LoginRequest,
+    UserResponse,
 )
-from .database import Conversation, get_db
+from .database import Conversation, User, get_db
+from .auth import (
+    hash_password,
+    verify_password,
+    create_access_token,
+    get_current_user,
+    COOKIE_NAME,
+)
 from .engine.base import GenerationParams
 from .engine.registry import EngineRegistry
 
@@ -55,12 +65,78 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],
     allow_methods=["*"],
-    allow_headers=["*"])
+    allow_headers=["*"],
+    # required for the browser to actually send/accept the httpOnly JWT
+    # cookie across the :5173 (Vite) / :8010 (FastAPI) origin split in dev
+    allow_credentials=True)
 
 @app.get("/health", response_model=HealthResponse, status_code=status.HTTP_200_OK)
 def health():
     loaded = registry.loaded_models()
     return HealthResponse(status="ok", model_loaded=bool(loaded), loaded_models=loaded)
+
+
+# --- Phase 3: auth (see docs/ROADMAP.md) ---
+# Single JWT access-token cookie, no refresh-token rotation -- a deliberate
+# scope cut for a single-demo-account portfolio app, not a gap (see
+# ROADMAP.md's Phase 3 section for the full reasoning).
+
+def _set_auth_cookie(response: Response, user_id) -> None:
+    response.set_cookie(
+        key=COOKIE_NAME,
+        value=create_access_token(user_id),
+        httponly=True,
+        samesite="lax",
+        max_age=7 * 24 * 60 * 60,
+    )
+
+
+@app.post("/auth/signup", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+async def signup(request: SignupRequest, response: Response, db: AsyncSession = Depends(get_db)):
+    existing = await db.execute(select(User).where(User.email == request.email))
+    if existing.scalar_one_or_none() is not None:
+        raise HTTPException(status_code=409, detail="Email already registered")
+
+    user = User(
+        email=request.email,
+        name=request.name,
+        password=hash_password(request.password),
+        auth_provider="local",
+    )
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+
+    _set_auth_cookie(response, user.id)
+    return user
+
+
+@app.post("/auth/login", response_model=UserResponse)
+async def login(request: LoginRequest, response: Response, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(User).where(User.email == request.email))
+    user = result.scalar_one_or_none()
+
+    # same generic error whether the email doesn't exist or the password is
+    # wrong -- distinguishing them lets an attacker enumerate real emails
+    invalid_credentials = HTTPException(status_code=401, detail="Invalid email or password")
+    if user is None or user.password is None:
+        raise invalid_credentials
+    if not verify_password(request.password, user.password):
+        raise invalid_credentials
+
+    _set_auth_cookie(response, user.id)
+    return user
+
+
+@app.post("/auth/logout")
+async def logout(response: Response):
+    response.delete_cookie(COOKIE_NAME)
+    return {"ok": True}
+
+
+@app.get("/auth/me", response_model=UserResponse)
+async def me(user: User = Depends(get_current_user)):
+    return user
 
 
 def _sse_event(data: dict) -> str:
@@ -155,7 +231,11 @@ async def _tracked_generate_events(engine, params: GenerationParams, db: AsyncSe
 
 
 @app.post("/generate")
-async def generate(request: PredictRequests, db: AsyncSession = Depends(get_db)):
+async def generate(
+    request: PredictRequests,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
     try:
         engine = registry.get(request.model_name.value)
     except KeyError as e:
@@ -167,7 +247,9 @@ async def generate(request: PredictRequests, db: AsyncSession = Depends(get_db))
         raise HTTPException(status_code=400, detail="session_id must be a conversation UUID")
 
     conversation = await db.get(Conversation, conversation_id)
-    if conversation is None:
+    # 404, not 403, whether the row doesn't exist or belongs to someone else --
+    # a 403 would confirm the id is real, leaking which conversation ids exist
+    if conversation is None or conversation.user_id != user.id:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
     params = GenerationParams(
@@ -187,7 +269,20 @@ async def generate(request: PredictRequests, db: AsyncSession = Depends(get_db))
 
 
 @app.post("/stop")
-def stop(request: StopRequest):
+async def stop(
+    request: StopRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    try:
+        conversation_id = UUID(request.session_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="session_id must be a conversation UUID")
+
+    conversation = await db.get(Conversation, conversation_id)
+    if conversation is None or conversation.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
     stop_event = _active_generations.get(request.session_id)
     if stop_event is None:
         return {"stopped": False, "reason": "no generation in progress for this session"}
@@ -196,25 +291,31 @@ def stop(request: StopRequest):
 
 
 # --- Phase 1: conversation persistence (see docs/ROADMAP.md) ---
-# No auth yet -- that's Phase 3. Anyone can read/create/append to any
-# conversation id right now; ownership checks land once users exist.
+# Phase 3: every route below is now ownership-checked against the
+# authenticated user.
 
-async def _get_conversation_or_404(conversation_id: UUID, db: AsyncSession) -> Conversation:
+async def _get_conversation_or_404(conversation_id: UUID, db: AsyncSession, user: User) -> Conversation:
     conversation = await db.get(Conversation, conversation_id)
-    if conversation is None:
+    if conversation is None or conversation.user_id != user.id:
         raise HTTPException(status_code=404, detail="Conversation not found")
     return conversation
 
 
 @app.get("/conversations", response_model=list[ConversationSummary])
-async def list_conversations(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Conversation).order_by(Conversation.updated_at.desc()))
+async def list_conversations(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+    result = await db.execute(
+        select(Conversation).where(Conversation.user_id == user.id).order_by(Conversation.updated_at.desc())
+    )
     return result.scalars().all()
 
 
 @app.post("/conversations", response_model=ConversationSchema, status_code=status.HTTP_201_CREATED)
-async def create_conversation(request: CreateConversationRequest, db: AsyncSession = Depends(get_db)):
-    conversation = Conversation(title=request.title or "New chat")
+async def create_conversation(
+    request: CreateConversationRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    conversation = Conversation(title=request.title or "New chat", user_id=user.id)
     db.add(conversation)
     await db.commit()
     # see append_message's comment: server-computed columns need an explicit
@@ -224,13 +325,29 @@ async def create_conversation(request: CreateConversationRequest, db: AsyncSessi
 
 
 @app.get("/conversations/{conversation_id}", response_model=ConversationSchema)
-async def get_conversation(conversation_id: UUID, db: AsyncSession = Depends(get_db)):
-    return await _get_conversation_or_404(conversation_id, db)
+async def get_conversation(
+    conversation_id: UUID, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)
+):
+    return await _get_conversation_or_404(conversation_id, db, user)
+
+
+@app.delete("/conversations/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_conversation(
+    conversation_id: UUID, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)
+):
+    conversation = await _get_conversation_or_404(conversation_id, db, user)
+    await db.delete(conversation)
+    await db.commit()
 
 
 @app.post("/conversations/{conversation_id}/messages", response_model=ConversationSchema)
-async def append_message(conversation_id: UUID, request: AppendMessageRequest, db: AsyncSession = Depends(get_db)):
-    conversation = await _get_conversation_or_404(conversation_id, db)
+async def append_message(
+    conversation_id: UUID,
+    request: AppendMessageRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    conversation = await _get_conversation_or_404(conversation_id, db, user)
     # reassign rather than .append() -- JSONB columns need a new list object
     # for SQLAlchemy's change-tracking to notice the mutation and emit an UPDATE
     conversation.messages = [*conversation.messages, {"role": request.role, "content": request.content}]

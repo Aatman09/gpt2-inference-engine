@@ -1,5 +1,5 @@
-from sqlalchemy import String, DateTime, func
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy import String, DateTime, ForeignKey, func
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession, create_async_engine
 
@@ -16,14 +16,33 @@ class Base(DeclarativeBase):
     pass
 
 
+class User(Base):
+    """Phase 3 (see docs/ROADMAP.md): real accounts. password is nullable
+    because Google-only users never set one -- auth_provider says which path
+    created the row, rather than inferring it from which columns are null."""
+
+    __tablename__ = "users"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    password: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    google_id: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
+    auth_provider: Mapped[str] = mapped_column(String(20), default="local")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    conversations: Mapped[list["Conversation"]] = relationship(back_populates="user")
+
+
 class Conversation(Base):
     """Phase 1 (see docs/ROADMAP.md): one row per conversation, JSONB message
-    array -- document-store pattern inside Postgres, no separate DB. No user
-    scoping yet; that's Phase 3 (auth), deliberately deferred."""
+    array -- document-store pattern inside Postgres, no separate DB.
+    Phase 3: scoped to a user via user_id."""
 
     __tablename__ = "conversations"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
     title: Mapped[str] = mapped_column(String(255), default="New chat")
     messages: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -35,6 +54,8 @@ class Conversation(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+
+    user: Mapped["User"] = relationship(back_populates="conversations")
 
 
 DATABASE_URL = config("DATABASE_URL")

@@ -27,6 +27,7 @@ class EngineRegistry:
         for model_name in EAGER_LOAD:
             self.get(model_name)
 
+    """Returns the object of the model - varible used is engine"""
     def get(self, model_name: str) -> Engine:
         engine = self._loaded.get(model_name)
         if engine is not None:

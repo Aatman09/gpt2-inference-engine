@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 from threading import Event
 from typing import Iterator
 
-
+"""Defines the format of """
 @dataclass
 class GenerationParams:
     prompt: str

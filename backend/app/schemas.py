@@ -48,3 +48,19 @@ class CreateConversationRequest(BaseModel):
 class AppendMessageRequest(BaseModel):
     role : str
     content : str
+
+# --- Phase 3: auth (see docs/ROADMAP.md) ---
+
+class SignupRequest(BaseModel):
+    email : str
+    password : str
+    name : str
+
+class LoginRequest(BaseModel):
+    email : str
+    password : str
+
+class UserResponse(BaseModel):
+    id : UUID
+    email : str
+    name : str
