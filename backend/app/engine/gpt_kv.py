@@ -23,6 +23,10 @@ from .base import Engine, GenerationParams
 REAL_VOCAB_SIZE = 50257
 EOT_TOKEN = 50256
 
+# GPT-2's learned position embedding table (wpe) has exactly this many rows,
+# so prompt + generated tokens can never exceed it.
+BLOCK_SIZE = 1024
+
 
 class GPTKVEngine(Engine):
     supports_cache_toggle = True
@@ -62,6 +66,23 @@ class GPTKVEngine(Engine):
     def stream(self, params: GenerationParams):
         prompt_text = self._render_prompt(params.history, params.prompt)
         tokens = self.enc.encode(prompt_text, allowed_special={"<|endoftext|>"})
+
+        # wpe only has BLOCK_SIZE rows, and positions keep counting up as we
+        # decode -- so the prompt has to leave room for every token we're
+        # about to generate. Keep the TAIL of the prompt: the most recent
+        # turns matter more than the oldest ones, and the trailing
+        # "User: ...\nAssistant:" scaffold has to survive or the model has no
+        # cue to answer. (Proper history summarisation is Phase 5 in
+        # docs/ROADMAP.md; this is the guard that stops it crashing today.)
+        max_prompt_tokens = BLOCK_SIZE - params.max_new_tokens
+        if max_prompt_tokens <= 0:
+            raise ValueError(
+                f"max_new_tokens={params.max_new_tokens} leaves no room for a prompt "
+                f"within GPT-2's {BLOCK_SIZE}-token context window"
+            )
+        if len(tokens) > max_prompt_tokens:
+            tokens = tokens[-max_prompt_tokens:]
+
         idx = torch.tensor(tokens, dtype=torch.long, device=self.device).unsqueeze(0)
 
         response_tokens: list[int] = []

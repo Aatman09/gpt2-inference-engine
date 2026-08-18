@@ -1,3 +1,4 @@
+import asyncio
 import sys
 import time
 import json
@@ -24,6 +25,7 @@ from .schemas import (
     Conversation as ConversationSchema,
     CreateConversationRequest,
     AppendMessageRequest,
+    RenameConversationRequest,
     SignupRequest,
     LoginRequest,
     UserResponse,
@@ -95,7 +97,7 @@ def _set_auth_cookie(response: Response, user_id) -> None:
 async def signup(request: SignupRequest, response: Response, db: AsyncSession = Depends(get_db)):
     existing = await db.execute(select(User).where(User.email == request.email))
     if existing.scalar_one_or_none() is not None:
-        raise HTTPException(status_code=409, detail="Email already registered")
+        raise HTTPException(z=409, detail="Email already registered")
 
     user = User(
         email=request.email,
@@ -205,16 +207,41 @@ async def _tracked_generate_events(engine, params: GenerationParams, db: AsyncSe
     _active_generations[params.session_id] = params.stop_event
     response_text = ""
     try:
-        gen = _generate_events(engine, params)
-        # can't `yield from` a sync generator inside an async one and still
-        # capture its return value, so pump it by hand with next()/StopIteration
-        while True:
+        # _generate_events is sync and CPU-bound: every next() runs a full model
+        # forward pass. Calling it directly from this async generator would block
+        # the event loop for the whole generation, so chunks pile up instead of
+        # being flushed to the socket as they're produced (bursty streaming), and
+        # every other request stalls too. Run it on a worker thread and hand
+        # chunks back through a queue so the loop stays free to flush each frame.
+        loop = asyncio.get_running_loop()
+        queue: asyncio.Queue = asyncio.Queue()
+        _DONE = object()
+
+        def pump():
+            gen = _generate_events(engine, params)
             try:
-                chunk = next(gen)
-            except StopIteration as stop:
-                response_text = stop.value or ""
-                break
-            yield chunk
+                while True:
+                    try:
+                        chunk = next(gen)
+                    except StopIteration as stop:
+                        loop.call_soon_threadsafe(queue.put_nowait, (_DONE, stop.value or ""))
+                        return
+                    loop.call_soon_threadsafe(queue.put_nowait, (chunk, None))
+            except BaseException as e:  # noqa: BLE001 - relayed to the consumer below
+                loop.call_soon_threadsafe(queue.put_nowait, (_DONE, e))
+
+        task = loop.run_in_executor(None, pump)
+        try:
+            while True:
+                chunk, payload = await queue.get()
+                if chunk is _DONE:
+                    if isinstance(payload, BaseException):
+                        raise payload
+                    response_text = payload
+                    break
+                yield chunk
+        finally:
+            await task
     finally:
         if _active_generations.get(params.session_id) is params.stop_event:
             del _active_generations[params.session_id]
@@ -265,6 +292,13 @@ async def generate(
     return StreamingResponse(
         _tracked_generate_events(engine, params, db, conversation),
         media_type="text/event-stream",
+        headers={
+            # stops intermediary buffering from batching up SSE frames --
+            # nginx (and other proxies) buffer text/event-stream by default,
+            # which would undo the per-token flushing above
+            "X-Accel-Buffering": "no",
+            "Cache-Control": "no-cache",
+        },
     )
 
 
@@ -329,6 +363,22 @@ async def get_conversation(
     conversation_id: UUID, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)
 ):
     return await _get_conversation_or_404(conversation_id, db, user)
+
+
+@app.patch("/conversations/{conversation_id}", response_model=ConversationSchema)
+async def rename_conversation(
+    conversation_id: UUID,
+    request: RenameConversationRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    conversation = await _get_conversation_or_404(conversation_id, db, user)
+    conversation.title = request.title
+    await db.commit()
+    # see append_message: server-computed updated_at needs an explicit refresh
+    # before response_model serialization touches it
+    await db.refresh(conversation)
+    return conversation
 
 
 @app.delete("/conversations/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT)

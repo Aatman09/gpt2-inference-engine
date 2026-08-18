@@ -49,6 +49,9 @@ class AppendMessageRequest(BaseModel):
     role : str
     content : str
 
+class RenameConversationRequest(BaseModel):
+    title : str
+
 # --- Phase 3: auth (see docs/ROADMAP.md) ---
 
 class SignupRequest(BaseModel):
