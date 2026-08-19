@@ -109,11 +109,18 @@ class GPT(nn.Module):
 
     def forward(self, idx, kv_caches=None, targets=None):
         B, T = idx.size()
-        assert T <= self.config.block_size, f"Cannot forward sequence of length {T} , block_size is {self.config.block_size}"
 
         past_length = 0
         if kv_caches is not None and kv_caches[0] is not None:
             past_length = kv_caches[0][0].shape[2]
+
+        # check the TOTAL position, not just this call's length -- on the
+        # cached decode path T is always 1, so a T-only assert never fires and
+        # wpe(pos) silently indexes past its block_size rows (a CUDA
+        # device-side assert, or garbage on CPU)
+        assert past_length + T <= self.config.block_size, (
+            f"Sequence position {past_length + T} exceeds block_size {self.config.block_size}"
+        )
 
         pos = torch.arange(past_length, past_length + T, dtype=torch.long, device=idx.device)
         pos_embd = self.transformer.wpe(pos)
