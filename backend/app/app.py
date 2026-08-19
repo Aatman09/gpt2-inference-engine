@@ -1,4 +1,5 @@
 import asyncio
+import os
 import sys
 import time
 import json
@@ -11,7 +12,8 @@ sys.path.insert(0, str(project_root))
 
 import torch
 from fastapi import Depends, FastAPI, HTTPException, Response, status
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -45,6 +47,14 @@ from fastapi.middleware.cors import CORSMiddleware
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
+# set in the deployed environment (HF Spaces) -- switches off dev-only CORS
+# and turns on Secure cookies, which require HTTPS and so can't be used locally
+IS_PRODUCTION = os.getenv("ENVIRONMENT", "development") == "production"
+
+# the built frontend, copied in by the Dockerfile; absent in local dev, where
+# Vite serves the UI on its own port instead
+FRONTEND_DIST = Path(__file__).resolve().parent.parent / "static"
+
 registry = EngineRegistry(device=device)
 
 # session_id -> stop_event for whichever /generate call is currently in
@@ -63,14 +73,19 @@ async def lifespan(_app: FastAPI):
         torch.cuda.empty_cache()
 
 app = FastAPI(lifespan=lifespan)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-    # required for the browser to actually send/accept the httpOnly JWT
-    # cookie across the :5173 (Vite) / :8010 (FastAPI) origin split in dev
-    allow_credentials=True)
+
+# In production FastAPI serves the built frontend itself, so requests are
+# same-origin and CORS isn't needed at all. It only exists for local dev,
+# where Vite (:5173) and FastAPI (:8010) are separate origins.
+if not IS_PRODUCTION:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["http://localhost:5173"],
+        allow_methods=["*"],
+        allow_headers=["*"],
+        # required for the browser to actually send/accept the httpOnly JWT
+        # cookie across the origin split in dev
+        allow_credentials=True)
 
 @app.get("/health", response_model=HealthResponse, status_code=status.HTTP_200_OK)
 def health():
@@ -89,6 +104,9 @@ def _set_auth_cookie(response: Response, user_id) -> None:
         value=create_access_token(user_id),
         httponly=True,
         samesite="lax",
+        # Secure requires HTTPS, so it can only be set in production -- on
+        # plain-HTTP localhost the browser would silently drop the cookie
+        secure=IS_PRODUCTION,
         max_age=7 * 24 * 60 * 60,
     )
 
@@ -97,7 +115,7 @@ def _set_auth_cookie(response: Response, user_id) -> None:
 async def signup(request: SignupRequest, response: Response, db: AsyncSession = Depends(get_db)):
     existing = await db.execute(select(User).where(User.email == request.email))
     if existing.scalar_one_or_none() is not None:
-        raise HTTPException(z=409, detail="Email already registered")
+        raise HTTPException(status_code=409, detail="Email already registered")
 
     user = User(
         email=request.email,
@@ -409,3 +427,34 @@ async def append_message(
     # the awaited async session.
     await db.refresh(conversation)
     return conversation
+
+
+# --- Serving the built frontend (production only) ---
+# HF Spaces exposes a single port, so FastAPI serves the Vite build itself
+# rather than running a separate static host. Mounted last so every API route
+# above is matched first.
+
+if FRONTEND_DIST.is_dir():
+    app.mount(
+        "/assets",
+        StaticFiles(directory=FRONTEND_DIST / "assets"),
+        name="assets",
+    )
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def serve_spa(full_path: str):
+        """Serve real files where they exist, otherwise index.html.
+
+        The frontend is a client-side-routed SPA: /chat and /settings don't
+        exist as files, so a hard refresh on those paths has to return
+        index.html and let react-router resolve the route in the browser.
+        """
+        candidate = (FRONTEND_DIST / full_path).resolve()
+        # containment check -- stops "../.." style paths escaping the build dir
+        if (
+            full_path
+            and FRONTEND_DIST in candidate.parents
+            and candidate.is_file()
+        ):
+            return FileResponse(candidate)
+        return FileResponse(FRONTEND_DIST / "index.html")

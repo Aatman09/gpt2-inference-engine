@@ -14,7 +14,10 @@ from starlette.config import Config
 
 from .database import User, get_db
 
-config = Config(str(Path(__file__).resolve().parent / ".env"))
+# no .env in the deployed container -- fall back to real environment variables
+# (see the same pattern in database.py)
+_env_file = Path(__file__).resolve().parent / ".env"
+config = Config(str(_env_file) if _env_file.is_file() else None)
 JWT_SECRET = config("JWT_SECRET")
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRES = timedelta(days=7)

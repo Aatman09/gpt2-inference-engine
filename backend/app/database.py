@@ -8,8 +8,11 @@ from datetime import datetime
 from pathlib import Path
 from starlette.config import Config
 
-# load DATABASE_URL from the .env sitting next to this file, regardless of CWD
-config = Config(str(Path(__file__).resolve().parent / ".env"))
+# load DATABASE_URL from the .env sitting next to this file, regardless of CWD.
+# In the deployed container there is no .env -- Config falls back to real
+# environment variables, but only if we don't hand it a path that doesn't exist.
+_env_file = Path(__file__).resolve().parent / ".env"
+config = Config(str(_env_file) if _env_file.is_file() else None)
 
 
 class Base(DeclarativeBase):
