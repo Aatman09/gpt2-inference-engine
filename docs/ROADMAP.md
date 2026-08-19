@@ -114,6 +114,61 @@ The architecture below is what a service like ChatGPT actually runs at scale. It
 captured here for understanding and for the portfolio writeup. It should only be built
 when access patterns force it — none of it is justified at single-user prototype scale.
 
+### Target architecture: split the API tier from the inference tier
+
+```
+FastAPI                      ← the web tier: stateless, cheap, scales horizontally
+├── auth
+├── postgres
+├── redis
+└── inference client         ← HTTP/gRPC to the serving tier, not an in-process call
+         │
+         ▼
+Inference Server             ← the model tier: expensive, GPU-bound, scales separately
+├── model
+├── tokenizer
+├── generation
+├── scheduler                ← queues requests, decides what runs next
+├── batching                 ← continuous batching across concurrent users
+└── KV cache                 ← paged, shared across requests, evictable
+```
+
+**What we run today:** all of the above collapsed into one process. `EngineRegistry`
+holds the model in the same Python process that serves auth and CRUD, and
+`/generate` calls `engine.stream()` directly. One CPU-bound generation occupies a
+worker thread for its whole duration; there is no queue, no batching, and the KV
+cache lives and dies inside a single request.
+
+**Why the split is the real answer:** GPUs are the scarce, expensive resource and
+scale on a completely different axis from a CRUD backend. Separating them lets the
+web tier scale out cheaply while a small number of GPU replicas stay saturated via
+batching. It also stops a slow generation from consuming a web worker.
+
+**What each new box actually does:**
+
+- **Inference client** — the seam. `Engine` (`backend/app/engine/base.py`) is already
+  this interface; today it's satisfied in-process, and the split means adding an
+  `HTTPEngine` that speaks to a remote server while `/generate` stays unchanged.
+- **Scheduler** — decides which queued request runs next, and admits new requests
+  mid-flight rather than making them wait for a whole batch to drain.
+- **Continuous batching** — the single biggest throughput win. Multiple users'
+  decode steps run as one batched forward pass; finished sequences drop out and new
+  ones join without stalling the batch. This is where the `B` dimension in
+  `model_kv.py` (permanently 1 in our serving path) finally earns its existence.
+- **Paged KV cache** — allocate the cache in fixed-size blocks (vLLM's PagedAttention)
+  instead of one contiguous tensor per request. Removes the fragmentation and
+  over-allocation that our naive `torch.cat` growth causes, and lets a shared prompt
+  prefix be reused across requests.
+
+**Trigger to build:** more than one concurrent user, or the moment a GPU is
+involved. On a free CPU tier with a single demo user, the split would add network
+hops and operational surface for no gain — but the boundary is already designed in,
+which is the point.
+
+**Prior art worth naming:** vLLM, TGI, SGLang, and TensorRT-LLM all implement
+exactly this scheduler + continuous batching + paged KV cache shape. Benchmarking
+several of them was the SilverTouch internship work.
+
 ### Redis — caching layer
 Sit Redis in front of Postgres for hot-conversation reads. Caches the assembled message
 history so a user's active conversation loads without hitting the DB on every turn.
