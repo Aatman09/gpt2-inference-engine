@@ -1,12 +1,14 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { ArrowRightIcon, SunIcon, MoonIcon } from "./icons";
 
-export default function AuthScreen() {
+// mode comes from the route (/login vs /signup) rather than internal state,
+// so each has its own URL and the browser back button behaves sensibly
+export default function AuthScreen({ mode = "login" }) {
   const { login, signup } = useAuth();
   const { theme, toggleTheme } = useTheme();
-  const [mode, setMode] = useState("login"); // "login" | "signup"
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -31,6 +33,8 @@ export default function AuthScreen() {
 
   return (
     <div className="auth-screen">
+      <Link to="/" className="auth-back">achat</Link>
+
       <button
         type="button"
         className="rail-link auth-theme-toggle"
@@ -115,15 +119,9 @@ export default function AuthScreen() {
           <span className="text-muted">
             {isSignup ? "Already have an account?" : "New here?"}
           </span>
-          <button
-            type="button"
-            onClick={() => {
-              setMode(isSignup ? "login" : "signup");
-              setError(null);
-            }}
-          >
+          <Link to={isSignup ? "/login" : "/signup"}>
             {isSignup ? "Sign in" : "Create account"}
-          </button>
+          </Link>
         </div>
       </form>
     </div>

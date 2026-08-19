@@ -2,12 +2,8 @@ import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useChat } from "../context/ChatContext";
 import { useTheme } from "../context/ThemeContext";
-
-const MODEL_OPTIONS = [
-  { value: "gpt2", label: "GPT-2 (my KV-cache engine)" },
-  { value: "qwen2.5-0.5b-instruct", label: "Qwen2.5-0.5B-Instruct" },
-  { value: "smollm2-360m-instruct", label: "SmolLM2-360M-Instruct" },
-];
+import ModelPicker from "../components/ModelPicker";
+import Switch from "../components/Switch";
 
 const MAX_NEW_TOKENS_CAP = 512;
 
@@ -16,7 +12,7 @@ const SECTIONS = ["General", "Performance", "Appearance", "Account"];
 export default function SettingsPage() {
   const [section, setSection] = useState("Performance");
   const { user, logout } = useAuth();
-  const { theme, toggleTheme } = useTheme();
+  const { theme, toggleTheme, font, setFont, zoom, setZoom } = useTheme();
   const {
     modelName,
     setModelName,
@@ -60,16 +56,7 @@ export default function SettingsPage() {
                 from the top bar.
               </div>
             </div>
-            <select
-              className="input"
-              value={modelName}
-              onChange={(e) => setModelName(e.target.value)}
-              disabled={streaming !== null}
-            >
-              {MODEL_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
+            <ModelPicker value={modelName} onChange={setModelName} disabled={streaming !== null} />
           </div>
         </div>
       )}
@@ -91,28 +78,12 @@ export default function SettingsPage() {
                 their own cache.
               </div>
             </div>
-            <div className="seg" role="radiogroup" aria-label="KV cache">
-              <label className="seg-opt">
-                <input
-                  type="radio"
-                  name="settings-kv"
-                  checked={cacheApplicable && useCache}
-                  disabled={!cacheApplicable || streaming !== null}
-                  onChange={() => setUseCache(true)}
-                />
-                On
-              </label>
-              <label className="seg-opt">
-                <input
-                  type="radio"
-                  name="settings-kv"
-                  checked={cacheApplicable && !useCache}
-                  disabled={!cacheApplicable || streaming !== null}
-                  onChange={() => setUseCache(false)}
-                />
-                Off
-              </label>
-            </div>
+            <Switch
+              checked={cacheApplicable && useCache}
+              onChange={setUseCache}
+              disabled={!cacheApplicable || streaming !== null}
+              label="KV cache"
+            />
           </div>
 
           <hr className="hr" />
@@ -155,34 +126,72 @@ export default function SettingsPage() {
             <h2>Appearance</h2>
             <p className="settings-intro">How achat looks.</p>
           </div>
+
           <hr className="hr" />
           <div className="setting-row">
             <div>
-              <div className="setting-label">Theme</div>
+              <div className="setting-label">Dark mode</div>
               <div className="setting-desc">
                 Defaults to your system preference on first visit, then remembers your
                 choice. Also switchable from the icon rail.
               </div>
             </div>
-            <div className="seg" role="radiogroup" aria-label="Theme">
-              <label className="seg-opt">
-                <input
-                  type="radio"
-                  name="settings-theme"
-                  checked={theme === "light"}
-                  onChange={() => theme !== "light" && toggleTheme()}
-                />
-                Light
-              </label>
-              <label className="seg-opt">
-                <input
-                  type="radio"
-                  name="settings-theme"
-                  checked={theme === "dark"}
-                  onChange={() => theme !== "dark" && toggleTheme()}
-                />
-                Dark
-              </label>
+            <Switch checked={theme === "dark"} onChange={toggleTheme} label="Dark mode" />
+          </div>
+
+          <hr className="hr" />
+          <div className="setting-row">
+            <div>
+              <div className="setting-label">Font</div>
+              <div className="setting-desc">
+                The reading face for messages and the interface. Each option previews
+                itself.
+              </div>
+            </div>
+            <div className="choice" role="radiogroup" aria-label="Font">
+              <button
+                type="button"
+                className={`choice-btn${font === "system" ? " active" : ""}`}
+                onClick={() => setFont("system")}
+              >
+                System
+              </button>
+              <button
+                type="button"
+                className={`choice-btn font-serif${font === "serif" ? " active" : ""}`}
+                onClick={() => setFont("serif")}
+              >
+                Serif
+              </button>
+              <button
+                type="button"
+                className={`choice-btn font-mono${font === "mono" ? " active" : ""}`}
+                onClick={() => setFont("mono")}
+              >
+                Mono
+              </button>
+            </div>
+          </div>
+
+          <hr className="hr" />
+          <div className="setting-row">
+            <div>
+              <div className="setting-label">Zoom</div>
+              <div className="setting-desc">
+                Scales the whole interface. Stored on this device.
+              </div>
+            </div>
+            <div className="choice" role="radiogroup" aria-label="Zoom">
+              {[90, 100, 110, 125].map((level) => (
+                <button
+                  key={level}
+                  type="button"
+                  className={`choice-btn${zoom === level ? " active" : ""}`}
+                  onClick={() => setZoom(level)}
+                >
+                  {level}%
+                </button>
+              ))}
             </div>
           </div>
         </div>

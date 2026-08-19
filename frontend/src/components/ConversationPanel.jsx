@@ -27,12 +27,12 @@ export default function ConversationPanel() {
 
   const open = (id) => {
     selectConversation(id);
-    navigate("/");
+    navigate("/chat");
   };
 
   const handleNewChat = async () => {
     await newChat();
-    navigate("/");
+    navigate("/chat");
   };
 
   const startEditing = (e, conv) => {

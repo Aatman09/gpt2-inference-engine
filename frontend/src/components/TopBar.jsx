@@ -1,12 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useChat } from "../context/ChatContext";
-
-const MODEL_OPTIONS = [
-  { value: "gpt2", label: "GPT-2 (my KV-cache engine)" },
-  { value: "qwen2.5-0.5b-instruct", label: "Qwen2.5-0.5B-Instruct" },
-  { value: "smollm2-360m-instruct", label: "SmolLM2-360M-Instruct" },
-];
+import ModelPicker from "./ModelPicker";
+import Switch from "./Switch";
 
 const KV_CACHE_HELP =
   "Reuses attention state across turns, so each new token costs one forward pass instead of a full recompute.";
@@ -60,27 +56,16 @@ export default function TopBar() {
 
   return (
     <header className="top-bar">
-      <Link to="/" className="top-bar-brand">achat</Link>
+      <Link to="/chat" className="top-bar-brand">achat</Link>
 
-      <select
-        className="input top-bar-model"
-        value={modelName}
-        onChange={(e) => setModelName(e.target.value)}
-        disabled={streaming !== null}
-        aria-label="Model"
-        title="Which model answers your messages"
-      >
-        {MODEL_OPTIONS.map((opt) => (
-          <option key={opt.value} value={opt.value}>{opt.label}</option>
-        ))}
-      </select>
+      <div className="top-bar-model">
+        <ModelPicker value={modelName} onChange={setModelName} disabled={streaming !== null} />
+      </div>
 
       <div className="top-bar-divider" />
 
       <div
         className="top-bar-control"
-        role="radiogroup"
-        aria-label="KV cache"
         title={
           cacheApplicable
             ? KV_CACHE_HELP
@@ -88,28 +73,12 @@ export default function TopBar() {
         }
       >
         <span className="top-bar-stat-label">KV cache</span>
-        <div className="seg">
-          <label className="seg-opt">
-            <input
-              type="radio"
-              name="kv-cache"
-              checked={cacheApplicable && useCache}
-              disabled={!cacheApplicable || streaming !== null}
-              onChange={() => setUseCache(true)}
-            />
-            On
-          </label>
-          <label className="seg-opt">
-            <input
-              type="radio"
-              name="kv-cache"
-              checked={cacheApplicable && !useCache}
-              disabled={!cacheApplicable || streaming !== null}
-              onChange={() => setUseCache(false)}
-            />
-            Off
-          </label>
-        </div>
+        <Switch
+          checked={cacheApplicable && useCache}
+          onChange={setUseCache}
+          disabled={!cacheApplicable || streaming !== null}
+          label="KV cache"
+        />
       </div>
 
       <div className="top-bar-divider" />

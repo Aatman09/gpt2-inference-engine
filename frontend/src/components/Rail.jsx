@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useChat } from "../context/ChatContext";
 import { useTheme } from "../context/ThemeContext";
-import { PlusIcon, HistoryIcon, SettingsIcon, PanelIcon, SunIcon, MoonIcon } from "./icons";
+import { PlusIcon, SettingsIcon, PanelIcon, SunIcon, MoonIcon, LogOutIcon } from "./icons";
 
 export default function Rail() {
   const { user, logout } = useAuth();
@@ -12,7 +12,7 @@ export default function Rail() {
 
   const handleNewChat = async () => {
     await newChat();
-    navigate("/");
+    navigate("/chat");
   };
 
   return (
@@ -36,15 +36,6 @@ export default function Rail() {
       >
         <PlusIcon />
       </button>
-
-      <NavLink
-        to="/history"
-        className={({ isActive }) => `rail-link${isActive ? " active" : ""}`}
-        aria-label="History"
-        title="History"
-      >
-        <HistoryIcon />
-      </NavLink>
 
       <NavLink
         to="/settings"
@@ -78,7 +69,7 @@ export default function Rail() {
         aria-label="Log out"
         title="Log out"
       >
-        ⏻
+        <LogOutIcon />
       </button>
     </nav>
   );

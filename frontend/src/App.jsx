@@ -3,8 +3,8 @@ import TopBar from "./components/TopBar";
 import Rail from "./components/Rail";
 import ConversationPanel from "./components/ConversationPanel";
 import AuthScreen from "./components/AuthScreen";
+import LandingPage from "./pages/LandingPage";
 import ChatPage from "./pages/ChatPage";
-import HistoryPage from "./pages/HistoryPage";
 import SettingsPage from "./pages/SettingsPage";
 import { useAuth } from "./context/AuthContext";
 import { ChatProvider, useChat } from "./context/ChatContext";
@@ -13,20 +13,39 @@ export default function App() {
   const { user, loading } = useAuth();
 
   // still checking for an existing session (GET /auth/me) -- render nothing
-  // rather than flashing the login screen before the check resolves
+  // rather than flashing the landing page before the check resolves
   if (loading) return null;
 
-  if (!user) return <AuthScreen />;
+  // Logged out: landing page at /, auth screens, everything else bounces
+  // back to the landing page.
+  if (!user) {
+    return (
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/login" element={<AuthScreen mode="login" />} />
+        <Route path="/signup" element={<AuthScreen mode="signup" />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    );
+  }
 
+  // Logged in: the app lives under /chat, and /, /login, /signup all
+  // redirect there -- a signed-in user has no use for the marketing page
+  // or a second login form.
   return (
     <ChatProvider>
-      <AppShell />
+      <Routes>
+        <Route path="/chat" element={<AppShell><ChatPage /></AppShell>} />
+        <Route path="/settings" element={<AppShell wide><SettingsPage /></AppShell>} />
+        <Route path="*" element={<Navigate to="/chat" replace />} />
+      </Routes>
     </ChatProvider>
   );
 }
 
-// separate component so it can read ChatContext (the provider is above it)
-function AppShell() {
+// `wide` pages (settings) take the full body width; the chat view rides
+// alongside the conversation panel.
+function AppShell({ children, wide = false }) {
   const { panelCollapsed } = useChat();
 
   return (
@@ -34,22 +53,8 @@ function AppShell() {
       <TopBar />
       <div className="app-body">
         <Rail />
-        <Routes>
-          {/* the conversation panel only rides along with the chat view --
-              history and settings are full-width pages */}
-          <Route
-            path="/"
-            element={
-              <>
-                {!panelCollapsed && <ConversationPanel />}
-                <ChatPage />
-              </>
-            }
-          />
-          <Route path="/history" element={<HistoryPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        {!wide && !panelCollapsed && <ConversationPanel />}
+        {children}
       </div>
     </div>
   );

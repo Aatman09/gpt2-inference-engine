@@ -10,8 +10,20 @@ function initialTheme() {
   return window.matchMedia?.("(prefers-color-scheme: light)").matches ? "light" : "dark";
 }
 
+function initialFont() {
+  const stored = localStorage.getItem("font");
+  return stored === "serif" || stored === "mono" ? stored : "system";
+}
+
+function initialZoom() {
+  const stored = Number(localStorage.getItem("zoom"));
+  return stored >= 80 && stored <= 150 ? stored : 100;
+}
+
 export function ThemeProvider({ children }) {
   const [theme, setTheme] = useState(initialTheme);
+  const [font, setFont] = useState(initialFont);
+  const [zoom, setZoom] = useState(initialZoom);
 
   // the palettes key off <html data-theme> (see index.css)
   useEffect(() => {
@@ -19,10 +31,25 @@ export function ThemeProvider({ children }) {
     localStorage.setItem("theme", theme);
   }, [theme]);
 
+  // reading face via <html data-font>, so every surface follows it
+  useEffect(() => {
+    document.documentElement.setAttribute("data-font", font);
+    localStorage.setItem("font", font);
+  }, [font]);
+
+  // zoom via the CSS zoom property on <html> -- reflows layout properly,
+  // unlike transform: scale
+  useEffect(() => {
+    document.documentElement.style.zoom = String(zoom / 100);
+    localStorage.setItem("zoom", String(zoom));
+  }, [zoom]);
+
   const toggleTheme = () => setTheme((prev) => (prev === "dark" ? "light" : "dark"));
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>{children}</ThemeContext.Provider>
+    <ThemeContext.Provider value={{ theme, toggleTheme, font, setFont, zoom, setZoom }}>
+      {children}
+    </ThemeContext.Provider>
   );
 }
 
