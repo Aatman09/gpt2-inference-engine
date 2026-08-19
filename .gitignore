@@ -9,3 +9,4 @@ __pycache__/
 # local secrets / env files (keep .env.example tracked)
 .env
 .claude/
+.agents/

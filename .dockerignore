@@ -1,0 +1,24 @@
+# training data and checkpoints -- hundreds of MB, not needed to serve
+fineweb_shards/
+*.pth
+training/
+
+# local environments and caches
+**/.venv/
+**/__pycache__/
+**/*.pyc
+**/node_modules/
+frontend/dist/
+
+# secrets -- these come from HF Spaces env vars in production
+**/.env
+
+# repo/tooling noise
+.git/
+.github/
+.claude/
+.agents/
+docs/
+design idea/
+*.md
+!backend/README.md
