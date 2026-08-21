@@ -64,7 +64,7 @@ export function ChatProvider({ children }) {
       const convs = summaries.map(toFrontendConversation);
       setConversations(convs);
       if (convs.length > 0) selectConversation(convs[0].id);
-      else await newChat();
+      else newChat();
     } catch (err) {
       console.error("Failed to load conversations:", err);
     }
@@ -85,23 +85,29 @@ export function ChatProvider({ children }) {
     }
   };
 
-  const newChat = async () => {
-    try {
-      const conv = toFrontendConversation(await createConversation());
-      setConversations((prev) => [conv, ...prev]);
-      setActiveId(conv.id);
-      return conv.id;
-    } catch (err) {
-      console.error("Failed to create conversation:", err);
-    }
+  // Purely local -- no DB row until the user actually sends a message
+  // (sendMessage creates the real conversation lazily). Without this, every
+  // "+ New chat" click, and every ChatProvider remount that found zero
+  // conversations, wrote an empty row that never got used -- the empty
+  // "New chat" entries piling up in the sidebar.
+  const newChat = () => {
+    const draft = { id: `draft-${crypto.randomUUID()}`, title: "New chat", updatedAt: null, messages: [] };
+    setConversations((prev) => [draft, ...prev]);
+    setActiveId(draft.id);
+    return draft.id;
   };
 
+  const isDraftId = (id) => typeof id === "string" && id.startsWith("draft-");
+
   const removeConversation = async (id) => {
-    try {
-      await deleteConversation(id);
-    } catch (err) {
-      console.error("Failed to delete conversation:", err);
-      return;
+    // a draft only exists client-side -- nothing to delete on the server
+    if (!isDraftId(id)) {
+      try {
+        await deleteConversation(id);
+      } catch (err) {
+        console.error("Failed to delete conversation:", err);
+        return;
+      }
     }
     setConversations((prev) => {
       const remaining = prev.filter((c) => c.id !== id);
@@ -120,6 +126,10 @@ export function ChatProvider({ children }) {
     // request fails
     const previous = conversations.find((c) => c.id === id)?.title;
     setConversations((prev) => prev.map((c) => (c.id === id ? { ...c, title: trimmed } : c)));
+    // a draft has no server-side row to rename yet -- the local title update
+    // above is enough, and sendMessage's title-derivation only fires on an
+    // empty title anyway, so a manual rename here still sticks
+    if (isDraftId(id)) return;
     try {
       await renameConversation(id, trimmed);
     } catch (err) {
@@ -141,15 +151,49 @@ export function ChatProvider({ children }) {
 
   const sendMessage = async (text) => {
     if (streaming) return;
-    const conversationId = activeId;
+    let conversationId = activeId;
     const userMessage = createMessage("user", text);
+
+    // first message in a draft chat: create the real DB row now, replacing
+    // the local placeholder id everywhere (sidebar entry + activeId) before
+    // any request that needs a real, persistable conversation id goes out
+    let draftTitle = null;
+    if (isDraftId(conversationId)) {
+      const draftId = conversationId;
+      // a user rename on the draft (still "New chat" server-side) must survive
+      // the swap to the real row, or the auto-title logic below overwrites it
+      draftTitle = conversations.find((c) => c.id === draftId)?.title;
+      try {
+        const created = toFrontendConversation(await createConversation());
+        conversationId = created.id;
+        setConversations((prev) =>
+          prev.map((c) => (c.id === draftId ? { ...created, messages: [] } : c))
+        );
+        setActiveId(conversationId);
+        // push the user's pre-send rename to the now-real row -- it only
+        // existed locally on the draft, which had nothing to persist against
+        if (draftTitle && draftTitle !== "New chat") {
+          renameConversation(conversationId, draftTitle).catch((err) =>
+            console.error("Failed to persist draft rename:", err)
+          );
+        }
+      } catch (err) {
+        console.error("Failed to create conversation:", err);
+        return;
+      }
+    }
 
     setConversations((prev) =>
       prev.map((c) =>
         c.id === conversationId
           ? {
               ...c,
-              title: c.messages.length === 0 ? deriveTitle(text) : c.title,
+              title:
+                draftTitle && draftTitle !== "New chat"
+                  ? draftTitle
+                  : c.messages.length === 0
+                    ? deriveTitle(text)
+                    : c.title,
               messages: [...c.messages, userMessage],
               updatedAt: new Date().toISOString(),
             }

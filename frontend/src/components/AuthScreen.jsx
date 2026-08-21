@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { getAuthConfig, googleLoginUrl } from "../api";
-import { ArrowRightIcon, SunIcon, MoonIcon } from "./icons";
+import { ArrowRightIcon, SunIcon, MoonIcon, GoogleIcon } from "./icons";
 
 // error codes set by /auth/google/callback when the flow fails; mapped to
 // readable text here rather than shown raw
@@ -138,13 +138,17 @@ export default function AuthScreen({ mode = "login" }) {
         </button>
 
         {googleEnabled && (
-          <a
-            className="btn btn-ghost btn-block"
-            href={googleLoginUrl()}
-            style={{ textDecoration: "none" }}
-          >
-            Continue with Google
-          </a>
+          <>
+            <div className="auth-divider">or</div>
+            <a
+              className="btn btn-ghost btn-block"
+              href={googleLoginUrl()}
+              style={{ textDecoration: "none" }}
+            >
+              <GoogleIcon />
+              Continue with Google
+            </a>
+          </>
         )}
 
         <div className="auth-links">

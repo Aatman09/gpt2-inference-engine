@@ -52,7 +52,9 @@
   --color-surface: #ffffff;
   --color-text: #201e1d;
   --color-divider: color-mix(in srgb, #201e1d 20%, transparent);
-  --color-muted: color-mix(in srgb, #201e1d 55%, transparent);
+  /* 65%, not 55% -- 55% measures 3.78:1 on the white surface, below the
+     4.5:1 floor for body/placeholder text; 65% clears it at 5.2:1 */
+  --color-muted: color-mix(in srgb, #201e1d 65%, transparent);
 
   --color-accent: #e05a1f;
   /* darker than the dark-theme variants so accent text stays legible on a
@@ -166,6 +168,10 @@ h1, h2, h3 {
 .input:focus {
   outline: none;
   border-color: var(--color-accent);
+}
+
+.input::placeholder {
+  color: var(--color-muted);
 }
 
 .tag {
@@ -517,6 +523,13 @@ h1, h2, h3 {
   color: var(--color-accent-700);
 }
 
+/* the user's own role label sits inside their bubble's alignment, not out
+   past the edge of it, so a one-word "wow" doesn't strand a label above a
+   sliver of text with nothing to anchor it to */
+.message-row.user .message-role {
+  padding-right: 2px;
+}
+
 .message-body {
   font-size: 15px;
   line-height: 1.65;
@@ -526,8 +539,16 @@ h1, h2, h3 {
   overflow-wrap: anywhere;
 }
 
+/* a short user turn ("wow") floating as bare text at the far edge of a
+   1100px-wide column reads as disconnected from the reply below it -- a
+   real bubble gives it a landing target and matches every other chat
+   product's pattern instead of the naive "flip text-align" approach */
 .message-row.user .message-body {
-  text-align: right;
+  text-align: left;
+  background: var(--color-accent-100);
+  color: var(--color-text);
+  border-radius: 14px;
+  padding: 10px 14px;
 }
 
 .message-body p {
@@ -694,29 +715,43 @@ h1, h2, h3 {
 /* --- Auth --- */
 
 .auth-screen {
-  height: 100vh;
+  min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: var(--space-8);
   position: relative;
+  background:
+    radial-gradient(680px 520px at 16% -8%, var(--color-accent-100), transparent 60%),
+    radial-gradient(600px 480px at 100% 100%, var(--color-accent-100), transparent 55%),
+    var(--color-bg);
 }
 
 .auth-theme-toggle {
   position: absolute;
   top: var(--space-4);
   right: var(--space-4);
+  z-index: 1;
 }
 
 .auth-card {
+  position: relative;
+  z-index: 1;
   width: 380px;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-divider);
+  border-radius: 16px;
+  padding: var(--space-8) var(--space-6) var(--space-6);
+  box-shadow: 0 24px 48px -24px rgba(0, 0, 0, 0.35);
 }
 
 .auth-card h2 {
   margin: 0 0 var(--space-2);
+  font-size: 26px;
+  letter-spacing: -0.02em;
 }
 
 .auth-subtitle {
@@ -728,6 +763,10 @@ h1, h2, h3 {
 .auth-error {
   font-size: 13px;
   color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-danger) 30%, transparent);
+  border-radius: 8px;
+  padding: var(--space-2) var(--space-3);
 }
 
 .auth-links {
@@ -1201,11 +1240,41 @@ h1, h2, h3 {
   position: absolute;
   top: var(--space-4);
   left: var(--space-6);
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-family: var(--font-heading);
   font-weight: 800;
   font-size: 16px;
+  letter-spacing: -0.02em;
   color: var(--color-text);
   text-decoration: none;
+}
+
+.auth-back::before {
+  content: "";
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  background: var(--color-accent);
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: 12px;
+  color: var(--color-muted);
+  margin: 2px 0;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--color-divider);
 }
 
 .auth-links a {
