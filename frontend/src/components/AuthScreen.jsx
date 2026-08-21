@@ -1,8 +1,17 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
+import { getAuthConfig, googleLoginUrl } from "../api";
 import { ArrowRightIcon, SunIcon, MoonIcon } from "./icons";
+
+// error codes set by /auth/google/callback when the flow fails; mapped to
+// readable text here rather than shown raw
+const GOOGLE_ERRORS = {
+  google_denied: "Google sign-in was cancelled.",
+  invalid_state: "Google sign-in expired or was invalid. Please try again.",
+  google_failed: "Could not sign in with Google. Please try again.",
+};
 
 // mode comes from the route (/login vs /signup) rather than internal state,
 // so each has its own URL and the browser back button behaves sensibly
@@ -14,8 +23,27 @@ export default function AuthScreen({ mode = "login" }) {
   const [name, setName] = useState("");
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [searchParams] = useSearchParams();
+  const [googleEnabled, setGoogleEnabled] = useState(false);
+
+  // ask the server whether it has OAuth credentials before offering the
+  // button; failures leave it hidden, which is the safe default
+  useEffect(() => {
+    let active = true;
+    getAuthConfig()
+      .then((cfg) => active && setGoogleEnabled(Boolean(cfg.google_enabled)))
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const isSignup = mode === "signup";
+
+  // the OAuth callback can only report failure by redirecting back here with
+  // a query param -- it is a browser navigation, not a fetch, so there is no
+  // response body for the UI to read
+  const oauthError = GOOGLE_ERRORS[searchParams.get("error")];
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -100,20 +128,24 @@ export default function AuthScreen({ mode = "login" }) {
           />
         </div>
 
-        {error && <div className="auth-error">{error}</div>}
+        {(error || oauthError) && (
+          <div className="auth-error">{error || oauthError}</div>
+        )}
 
         <button type="submit" className="btn btn-primary btn-block" disabled={submitting}>
           {submitting ? "…" : isSignup ? "Sign up" : "Sign in"}
           <ArrowRightIcon />
         </button>
 
-        <a
-          className="btn btn-ghost btn-block"
-          href={`${import.meta.env.DEV ? "http://localhost:8010" : ""}/auth/google/login`}
-          style={{ textDecoration: "none" }}
-        >
-          Continue with Google
-        </a>
+        {googleEnabled && (
+          <a
+            className="btn btn-ghost btn-block"
+            href={googleLoginUrl()}
+            style={{ textDecoration: "none" }}
+          >
+            Continue with Google
+          </a>
+        )}
 
         <div className="auth-links">
           <span className="text-muted">

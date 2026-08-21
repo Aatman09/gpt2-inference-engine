@@ -193,3 +193,17 @@ export async function getCurrentUser() {
   if (!res.ok) return null;
   return res.json();
 }
+
+// the Google button is only rendered when the server actually has OAuth
+// credentials configured -- otherwise the link would 503
+export async function getAuthConfig() {
+  const res = await fetch(`${API_BASE}/health`);
+  if (!res.ok) return { google_enabled: false };
+  return res.json();
+}
+
+// a full page navigation, not fetch(): the browser itself has to travel to
+// Google's consent screen, which a same-origin XHR cannot do
+export function googleLoginUrl() {
+  return `${API_BASE}/auth/google/login`;
+}

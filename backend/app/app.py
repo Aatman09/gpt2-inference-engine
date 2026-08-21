@@ -1,5 +1,6 @@
 import asyncio
 import os
+import secrets
 import sys
 import time
 import json
@@ -11,8 +12,8 @@ project_root = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 import torch
-from fastapi import Depends, FastAPI, HTTPException, Response, status
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
+from fastapi.responses import FileResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from sqlalchemy import select
@@ -38,7 +39,13 @@ from .auth import (
     verify_password,
     create_access_token,
     get_current_user,
+    google_authorize_url,
+    new_oauth_state,
+    exchange_google_code,
+    find_or_create_google_user,
     COOKIE_NAME,
+    OAUTH_STATE_COOKIE,
+    GOOGLE_ENABLED,
 )
 from .engine.base import GenerationParams
 from .engine.registry import EngineRegistry
@@ -54,6 +61,12 @@ IS_PRODUCTION = os.getenv("ENVIRONMENT", "development") == "production"
 # the built frontend, copied in by the Dockerfile; absent in local dev, where
 # Vite serves the UI on its own port instead
 FRONTEND_DIST = Path(__file__).resolve().parent.parent / "static"
+
+# where the OAuth callback sends the browser once the session cookie is set.
+# Empty in production makes the redirects site-relative ("/chat"), which is
+# correct there because FastAPI serves the SPA itself; in dev the UI lives on
+# Vite's separate origin and needs the absolute URL.
+FRONTEND_ORIGIN = "" if IS_PRODUCTION else "http://localhost:5173"
 
 registry = EngineRegistry(device=device)
 
@@ -90,7 +103,12 @@ if not IS_PRODUCTION:
 @app.get("/health", response_model=HealthResponse, status_code=status.HTTP_200_OK)
 def health():
     loaded = registry.loaded_models()
-    return HealthResponse(status="ok", model_loaded=bool(loaded), loaded_models=loaded)
+    return HealthResponse(
+        status="ok",
+        model_loaded=bool(loaded),
+        loaded_models=loaded,
+        google_enabled=GOOGLE_ENABLED,
+    )
 
 
 # --- Phase 3: auth (see docs/ROADMAP.md) ---
@@ -146,6 +164,76 @@ async def login(request: LoginRequest, response: Response, db: AsyncSession = De
 
     _set_auth_cookie(response, user.id)
     return user
+
+
+@app.get("/auth/google/login")
+async def google_login():
+    """Redirect the browser to Google's consent screen.
+
+    A GET returning a redirect, not a JSON API call, because the browser itself
+    has to navigate to Google -- fetch() would hit CORS and couldn't show the
+    consent UI anyway.
+    """
+    if not GOOGLE_ENABLED:
+        raise HTTPException(status_code=503, detail="Google sign-in is not configured")
+
+    state = new_oauth_state()
+    response = RedirectResponse(google_authorize_url(state))
+    # CSRF defence: Google echoes this value back to the callback, which
+    # compares it against the cookie. Without it, an attacker could feed their
+    # own callback URL to a victim and silently log them into the attacker's
+    # account. Short-lived, since it only has to survive one round trip.
+    response.set_cookie(
+        key=OAUTH_STATE_COOKIE,
+        value=state,
+        httponly=True,
+        # deliberately NOT "strict": the callback arrives as a cross-site
+        # navigation from accounts.google.com, and a strict cookie would not be
+        # sent on it -- breaking the very check it exists for
+        samesite="lax",
+        secure=IS_PRODUCTION,
+        max_age=600,
+    )
+    return response
+
+
+@app.get("/auth/google/callback")
+async def google_callback(
+    request: Request,
+    code: str | None = None,
+    state: str | None = None,
+    error: str | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """Google redirects the browser here after the consent screen."""
+    if not GOOGLE_ENABLED:
+        raise HTTPException(status_code=503, detail="Google sign-in is not configured")
+
+    # the user hit "Cancel" on the consent screen, or Google refused
+    if error or not code:
+        return RedirectResponse(f"{FRONTEND_ORIGIN}/login?error=google_denied")
+
+    # constant-time compare and a presence check: a missing cookie (expired, or
+    # a forged callback that never went through /auth/google/login) fails just
+    # as hard as a mismatched one
+    expected_state = request.cookies.get(OAUTH_STATE_COOKIE)
+    if not expected_state or not state or not secrets.compare_digest(state, expected_state):
+        return RedirectResponse(f"{FRONTEND_ORIGIN}/login?error=invalid_state")
+
+    try:
+        profile = await exchange_google_code(code)
+        user = await find_or_create_google_user(db, profile)
+    except HTTPException:
+        # surface failures in the UI rather than as a raw JSON error page --
+        # the browser is mid-navigation here, not calling an API
+        return RedirectResponse(f"{FRONTEND_ORIGIN}/login?error=google_failed")
+
+    # land on the app itself: the session cookie is set on this same response,
+    # so the SPA boots straight into an authenticated state
+    response = RedirectResponse(f"{FRONTEND_ORIGIN}/chat")
+    _set_auth_cookie(response, user.id)
+    response.delete_cookie(OAUTH_STATE_COOKIE)
+    return response
 
 
 @app.post("/auth/logout")

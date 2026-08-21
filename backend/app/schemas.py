@@ -7,6 +7,9 @@ class HealthResponse(BaseModel):
     status : str
     model_loaded : bool
     loaded_models : list[str] = []
+    # lets the frontend hide the "Continue with Google" button when the server
+    # has no OAuth credentials, rather than offering a link that 503s
+    google_enabled : bool = False
 
 # values must match the keys in engine/registry.py's _ENGINE_SPECS exactly --
 # this enum is the only validation those keys get before a dict lookup
