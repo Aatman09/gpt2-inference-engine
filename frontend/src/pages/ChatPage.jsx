@@ -65,35 +65,37 @@ export default function ChatPage() {
       </div>
 
       <div className="composer">
-        <textarea
-          className="input"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Message achat…"
-          rows={1}
-        />
-        {streamingText !== null ? (
-          <button
-            type="button"
-            className="btn btn-ghost btn-icon"
-            onClick={stop}
-            aria-label="Stop generating"
-            title="Stop generating"
-          >
-            <StopIcon />
-          </button>
-        ) : (
-          <button
-            type="button"
-            className="btn btn-primary btn-icon"
-            onClick={handleSend}
-            disabled={!draft.trim()}
-            aria-label="Send message"
-          >
-            <ArrowRightIcon />
-          </button>
-        )}
+        <div className="composer-shell">
+          <textarea
+            className="composer-input"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Message achat…"
+            rows={1}
+          />
+          {streamingText !== null ? (
+            <button
+              type="button"
+              className="btn btn-ghost btn-icon composer-send"
+              onClick={stop}
+              aria-label="Stop generating"
+              title="Stop generating"
+            >
+              <StopIcon />
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="btn btn-primary btn-icon composer-send"
+              onClick={handleSend}
+              disabled={!draft.trim()}
+              aria-label="Send message"
+            >
+              <ArrowRightIcon />
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -1,5 +1,11 @@
 /* Design system ported from "design idea/Chatbot App - 1b.dc.html" --
-   warm dark palette, 2px dividers, heavy headings, accent-coloured metrics. */
+   2px dividers, heavy headings, accent-coloured metrics. Neutrals are a
+   cool near-black/near-white slate scale (OKLCH) rather than the original
+   warm-brown values: warm-on-warm was flattening the orange accent's
+   contrast, and a cool ground is what the best-regarded dark developer
+   UIs (Linear, Vercel, GitHub, Stripe) converge on for exactly this
+   reason -- one saturated accent against a quiet, temperature-neutral
+   base. Pushed to a starker black/white contrast than the first cool pass. */
 
 :root {
   --space-1: 4px;
@@ -8,6 +14,18 @@
   --space-4: 16px;
   --space-6: 24px;
   --space-8: 32px;
+
+  /* type scale -- named steps instead of one-off pixel values scattered
+     per component; body/UI text sits at 13-15, display steps go up from
+     there so hierarchy reads as deliberate jumps, not incremental drift */
+  --text-xs: 11px;
+  --text-sm: 12.5px;
+  --text-base: 14px;
+  --text-md: 15px;
+  --text-lg: 17px;
+  --text-xl: 20px;
+  --text-2xl: 24px;
+  --text-3xl: 30px;
 
   --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   --font-heading: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
@@ -32,37 +50,70 @@
    than one being a media-query override. */
 :root,
 :root[data-theme="dark"] {
-  --color-bg: #201e1d;
-  --color-surface: #2d2b2b;
-  --color-text: #f3f2f2;
-  --color-divider: color-mix(in srgb, #f3f2f2 35%, transparent);
-  --color-muted: color-mix(in srgb, #f3f2f2 55%, transparent);
+  /* cool slate ramp in OKLCH, pushed to a starker near-black than the
+     first cool-neutral pass (12% -> 9%) for higher black/white contrast;
+     lightness steps stay perceptually even across the ladder. */
+  --color-bg: oklch(9% 0.004 260);
+  --color-surface: oklch(15% 0.006 260);
+  --color-surface-raised: oklch(21% 0.007 260);
+  --color-text: oklch(97% 0.003 260);
+  --color-divider: color-mix(in srgb, oklch(97% 0.003 260) 14%, transparent);
+  --color-muted: color-mix(in srgb, oklch(97% 0.003 260) 58%, transparent);
 
   --color-accent: #ff7a45;
   --color-accent-700: #ff9268;
   --color-accent-800: #ffb195;
   --color-accent-100: color-mix(in srgb, #ff7a45 18%, transparent);
   --color-danger: #ff8a8a;
+  /* fixed dark ink for text/dots sitting on the accent -- the orange stays
+     bright enough in both themes that this never needs to invert, and
+     clears 7.09:1 against it directly, so no separate fill token needed */
+  --color-on-accent: #201108;
+
+  /* elevation -- soft offset shadows so lifted surfaces read as raised
+     instead of only color-mix tints doing the work of depth */
+  --shadow-sm: 0 2px 8px -2px rgba(0, 0, 0, 0.55);
+  --shadow-md: 0 16px 32px -14px rgba(0, 0, 0, 0.7);
+  --shadow-accent: 0 0 0 1px color-mix(in srgb, var(--color-accent) 35%, transparent),
+    0 8px 20px -10px color-mix(in srgb, var(--color-accent) 45%, transparent);
 
   color-scheme: dark;
 }
 
 :root[data-theme="light"] {
-  --color-bg: #faf8f7;
-  --color-surface: #ffffff;
-  --color-text: #201e1d;
-  --color-divider: color-mix(in srgb, #201e1d 20%, transparent);
-  /* 65%, not 55% -- 55% measures 3.78:1 on the white surface, below the
-     4.5:1 floor for body/placeholder text; 65% clears it at 5.2:1 */
-  --color-muted: color-mix(in srgb, #201e1d 65%, transparent);
+  /* same cool-slate hue as dark mode, inverted -- chroma kept low near
+     white per OKLCH ramp guidance. Pushed to a crisper near-white than
+     the first cool-neutral pass (98% -> 99.3%) to match the stark
+     black/white contrast the dark theme now uses. */
+  --color-bg: oklch(99.3% 0.002 260);
+  --color-surface: oklch(100% 0 0);
+  --color-surface-raised: oklch(97% 0.003 260);
+  --color-text: oklch(18% 0.008 260);
+  --color-divider: color-mix(in srgb, oklch(18% 0.008 260) 16%, transparent);
+  /* 65%, not 55% -- 55% measures under the 4.5:1 floor for body/placeholder
+     text; 65% clears it with margin */
+  --color-muted: color-mix(in srgb, oklch(18% 0.008 260) 65%, transparent);
 
-  --color-accent: #e05a1f;
+  /* one step deeper than the first cool-neutral pass's #e05a1f -- that
+     value cleared 4.5:1 against oklch(98%) but the crisper oklch(99.3%)
+     bg used here for stronger black/white contrast drops it to 3.64:1,
+     under the floor for small accent text (top-bar stat, landing demo
+     values at large sizes are still fine, but the token is shared) */
+  --color-accent: #c24a15;
   /* darker than the dark-theme variants so accent text stays legible on a
      light background -- the -700/-800 steps invert direction here */
-  --color-accent-700: #c24a15;
-  --color-accent-800: #9c3a0f;
-  --color-accent-100: color-mix(in srgb, #e05a1f 14%, transparent);
+  --color-accent-700: #a83e0d;
+  --color-accent-800: #82300a;
+  --color-accent-100: color-mix(in srgb, #c24a15 14%, transparent);
   --color-danger: #c0392b;
+  /* the light-theme accent is dark enough to need a light ink on top,
+     unlike dark mode's bright orange -- this pair only ever inverts here */
+  --color-on-accent: #fff6f2;
+
+  --shadow-sm: 0 2px 8px -2px oklch(18% 0.008 260 / 0.1);
+  --shadow-md: 0 16px 32px -16px oklch(18% 0.008 260 / 0.18);
+  --shadow-accent: 0 0 0 1px color-mix(in srgb, var(--color-accent) 30%, transparent),
+    0 8px 20px -10px color-mix(in srgb, var(--color-accent) 25%, transparent);
 
   color-scheme: light;
 }
@@ -85,6 +136,7 @@ body {
 h1, h2, h3 {
   font-family: var(--font-heading);
   font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
 .hr {
@@ -113,22 +165,32 @@ h1, h2, h3 {
 
 .btn-primary {
   background: var(--color-accent);
-  color: #201e1d;
+  color: var(--color-on-accent);
   font-weight: 600;
+  box-shadow: 0 4px 12px -4px color-mix(in srgb, var(--color-accent) 55%, transparent);
+  transition: background-color 0.12s ease, box-shadow 0.12s ease, transform 0.12s ease;
 }
 
 .btn-primary:hover:not(:disabled) {
   background: var(--color-accent-700);
+  box-shadow: 0 6px 16px -4px color-mix(in srgb, var(--color-accent) 65%, transparent);
+  transform: translateY(-1px);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 .btn-ghost {
   background: transparent;
   border-color: var(--color-divider);
   color: var(--color-text);
+  transition: background-color 0.12s ease, border-color 0.12s ease;
 }
 
 .btn-ghost:hover:not(:disabled) {
   background: color-mix(in srgb, var(--color-text) 8%, transparent);
+  border-color: color-mix(in srgb, var(--color-text) 25%, var(--color-divider));
 }
 
 .btn-icon {
@@ -206,14 +268,14 @@ h1, h2, h3 {
   align-items: center;
   gap: var(--space-4);
   padding: var(--space-3) var(--space-4);
-  border-bottom: 2px solid var(--color-divider);
   flex: none;
 }
 
 .top-bar-brand {
   font-family: var(--font-heading);
   font-weight: 800;
-  font-size: 16px;
+  font-size: var(--text-lg);
+  letter-spacing: -0.02em;
   color: var(--color-text);
   text-decoration: none;
 }
@@ -221,6 +283,18 @@ h1, h2, h3 {
 /* pushes everything after the model picker to the right-hand side */
 .top-bar-model {
   margin-right: auto;
+}
+
+/* the engine cluster: cache toggle + live rate + delta bound into one
+   container so the control and the stat it drives read as one causal
+   unit, instead of three peer items separated by identical dividers */
+.top-bar-engine {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: 7px var(--space-4) 7px var(--space-3);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface));
 }
 
 .top-bar-stat {
@@ -237,7 +311,7 @@ h1, h2, h3 {
 }
 
 .top-bar-delta {
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 600;
   white-space: nowrap;
 }
@@ -245,22 +319,36 @@ h1, h2, h3 {
 .top-bar-stat-value {
   font-family: var(--font-heading);
   font-weight: 800;
-  font-size: 22px;
+  font-size: var(--text-xl);
+  letter-spacing: -0.02em;
   color: var(--color-accent);
   font-variant-numeric: tabular-nums;
 }
 
 .top-bar-stat-label {
-  font-size: 11px;
+  font-size: var(--text-xs);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--color-muted);
 }
 
+/* peak memory is demoted outside the engine cluster: a secondary readout,
+   not part of the cache/rate causal loop -- smaller value, no accent */
+.top-bar-stat.is-secondary .top-bar-stat-value {
+  font-size: var(--text-base);
+  color: var(--color-text);
+}
+
 .top-bar-divider {
-  width: 2px;
-  height: 28px;
+  width: 1px;
+  height: 20px;
   background: var(--color-divider);
+}
+
+.top-bar-engine-divider {
+  width: 1px;
+  height: 22px;
+  background: color-mix(in srgb, var(--color-accent) 25%, var(--color-divider));
 }
 
 .top-bar-control {
@@ -280,7 +368,7 @@ h1, h2, h3 {
 .rail {
   width: 56px;
   flex: none;
-  border-right: 2px solid var(--color-divider);
+  background: var(--color-surface);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -303,15 +391,23 @@ h1, h2, h3 {
   font-size: 15px;
   font-family: inherit;
   cursor: pointer;
+  transition: background-color 0.12s ease, color 0.12s ease, transform 0.12s ease;
 }
 
 .rail-link:hover {
   background: color-mix(in srgb, var(--color-text) 8%, transparent);
+  transform: translateY(-1px);
 }
 
 .rail-link.active {
   background: var(--color-accent-100);
   color: var(--color-accent-800);
+}
+
+.rail-link:focus-visible,
+.rail-link:focus-visible.active {
+  outline: none;
+  border-color: var(--color-accent);
 }
 
 .rail-spacer {
@@ -323,7 +419,7 @@ h1, h2, h3 {
   height: 30px;
   border-radius: 50%;
   background: var(--color-accent);
-  color: #201e1d;
+  color: var(--color-on-accent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -342,7 +438,7 @@ h1, h2, h3 {
 .conversation-panel {
   width: 240px;
   flex: none;
-  border-right: 2px solid var(--color-divider);
+  background: var(--color-surface);
   display: flex;
   flex-direction: column;
   padding: var(--space-3) var(--space-2);
@@ -376,8 +472,10 @@ h1, h2, h3 {
   padding: 8px 10px;
   border-radius: 8px;
   font-size: 13.5px;
+  font-weight: 500;
   cursor: pointer;
   color: var(--color-text);
+  transition: background-color 0.12s ease;
 }
 
 .conversation-item:hover {
@@ -387,6 +485,7 @@ h1, h2, h3 {
 .conversation-item.active {
   background: var(--color-accent-100);
   color: var(--color-accent-800);
+  font-weight: 600;
 }
 
 .conversation-title {
@@ -401,7 +500,7 @@ h1, h2, h3 {
   flex-shrink: 0;
   width: 22px;
   height: 22px;
-  display: none;
+  display: flex;
   align-items: center;
   justify-content: center;
   background: transparent;
@@ -409,14 +508,23 @@ h1, h2, h3 {
   border-radius: 5px;
   color: var(--color-muted);
   cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease, background-color 0.12s ease, color 0.12s ease;
 }
 
-.conversation-item:hover .conversation-action {
-  display: flex;
+.conversation-item:hover .conversation-action,
+.conversation-action:focus-visible {
+  opacity: 1;
 }
 
 .conversation-action:hover {
   color: var(--color-text);
+  background: color-mix(in srgb, var(--color-text) 12%, transparent);
+}
+
+.conversation-action:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
 }
 
 .conversation-delete:hover {
@@ -481,12 +589,19 @@ h1, h2, h3 {
   margin: 10vh auto 0;
   text-align: center;
   color: var(--color-muted);
+  max-width: 46ch;
 }
 
 .chat-placeholder h2 {
   color: var(--color-text);
-  font-size: 26px;
+  font-size: var(--text-3xl);
+  letter-spacing: -0.02em;
   margin: 0 0 var(--space-2);
+}
+
+.chat-placeholder p {
+  font-size: var(--text-md);
+  line-height: 1.6;
 }
 
 /* user messages hug the right, assistant replies the left */
@@ -512,8 +627,9 @@ h1, h2, h3 {
 }
 
 .message-role {
-  font-size: 11px;
-  letter-spacing: 0.08em;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--color-muted);
   margin-bottom: 6px;
@@ -587,7 +703,7 @@ h1, h2, h3 {
 .message-metrics {
   display: flex;
   gap: var(--space-2);
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: var(--color-muted);
   margin-top: 6px;
   font-variant-numeric: tabular-nums;
@@ -608,10 +724,8 @@ h1, h2, h3 {
 }
 
 .composer {
-  border-top: 2px solid var(--color-divider);
-  padding: var(--space-4) var(--space-8);
+  padding: 0 var(--space-8) var(--space-6);
   display: flex;
-  gap: var(--space-3);
   /* matches .message-list so the input lines up with the messages above it */
   max-width: min(1100px, 100%);
   margin: 0 auto;
@@ -619,12 +733,50 @@ h1, h2, h3 {
   flex: none;
 }
 
-.composer textarea {
+/* chrome-less composer: the pill itself carries the surface and focus
+   ring, so the textarea and send button read as one floating control
+   instead of a bordered field beside a separate button */
+.composer-shell {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+  background: var(--color-surface-raised);
+  border: 2px solid transparent;
+  border-radius: 26px;
+  padding: 8px 8px 8px 20px;
+  transition: box-shadow 0.12s ease;
+}
+
+.composer-shell:focus-within {
+  box-shadow: 0 0 0 3px var(--color-accent-100);
+}
+
+.composer-input {
   flex: 1;
   min-width: 0;
   resize: none;
+  border: none;
+  background: none;
+  padding: 6px 0;
+  color: var(--color-text);
+  font-size: 14px;
+  font-family: inherit;
   line-height: 1.4;
   max-height: 200px;
+}
+
+.composer-input:focus {
+  outline: none;
+}
+
+.composer-input::placeholder {
+  color: var(--color-muted);
+}
+
+.composer-send {
+  flex: none;
 }
 
 /* --- Settings --- */
@@ -633,6 +785,9 @@ h1, h2, h3 {
   display: flex;
   flex: 1;
   min-height: 0;
+  /* light touch only -- this is a task screen, so the wash stays quiet
+     enough to never compete with the form content sitting on top of it */
+  background: radial-gradient(900px 500px at 100% 0%, var(--color-accent-100), transparent 60%);
 }
 
 .settings-nav {
@@ -741,16 +896,16 @@ h1, h2, h3 {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  background: var(--color-surface);
+  background: var(--color-surface-raised);
   border: 1px solid var(--color-divider);
   border-radius: 16px;
   padding: var(--space-8) var(--space-6) var(--space-6);
-  box-shadow: 0 24px 48px -24px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--shadow-md);
 }
 
 .auth-card h2 {
   margin: 0 0 var(--space-2);
-  font-size: 26px;
+  font-size: var(--text-2xl);
   letter-spacing: -0.02em;
 }
 
@@ -820,7 +975,7 @@ h1, h2, h3 {
 
 .switch.on::after {
   transform: translateX(20px);
-  background: #201e1d;
+  background: var(--color-on-accent);
 }
 
 .switch:disabled {
@@ -889,10 +1044,10 @@ h1, h2, h3 {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  background: var(--color-surface);
+  background: var(--color-surface-raised);
   border: 2px solid var(--color-divider);
   border-radius: 10px;
-  box-shadow: 0 8px 24px color-mix(in srgb, #000 30%, transparent);
+  box-shadow: var(--shadow-md);
 }
 
 .model-option {
@@ -973,7 +1128,7 @@ h1, h2, h3 {
 
 .choice-btn.active {
   background: var(--color-accent);
-  color: #201e1d;
+  color: var(--color-on-accent);
   font-weight: 600;
 }
 
@@ -993,6 +1148,43 @@ h1, h2, h3 {
   display: flex;
   flex-direction: column;
   background: var(--color-bg);
+}
+
+/* hero gets its own atmosphere: a faint measurement grid (this product's
+   whole pitch is measured tok/s, TTFT, memory -- the cache-comparison bars
+   right below it are the same motif made literal) plus a soft accent glow
+   behind the headline. Scoped to the hero alone so the feature/CTA
+   sections below stay quiet by contrast, not decorated end to end. */
+.landing-hero {
+  position: relative;
+  padding: var(--space-6) 0 var(--space-4);
+}
+
+.landing-hero::before {
+  content: "";
+  position: absolute;
+  inset: -10% -8%;
+  z-index: 0;
+  background-image:
+    linear-gradient(var(--color-divider) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-divider) 1px, transparent 1px);
+  background-size: 48px 48px;
+  opacity: 0.5;
+  -webkit-mask-image: radial-gradient(60% 70% at 28% 25%, black 0%, transparent 72%);
+  mask-image: radial-gradient(60% 70% at 28% 25%, black 0%, transparent 72%);
+}
+
+.landing-hero::after {
+  content: "";
+  position: absolute;
+  inset: -10% -8%;
+  z-index: 0;
+  background: radial-gradient(560px 420px at 20% 15%, var(--color-accent-100), transparent 65%);
+}
+
+.landing-hero > * {
+  position: relative;
+  z-index: 1;
 }
 
 .landing-nav {

@@ -62,62 +62,63 @@ export default function TopBar() {
         <ModelPicker value={modelName} onChange={setModelName} disabled={streaming !== null} />
       </div>
 
-      <div className="top-bar-divider" />
-
-      <div
-        className="top-bar-control"
-        title={
-          cacheApplicable
-            ? KV_CACHE_HELP
-            : `${KV_CACHE_HELP} Only applies to GPT-2 — the HuggingFace models manage their own cache.`
-        }
-      >
-        <span className="top-bar-stat-label">KV cache</span>
-        <Switch
-          checked={cacheApplicable && useCache}
-          onChange={setUseCache}
-          disabled={!cacheApplicable || streaming !== null}
-          label="KV cache"
-        />
-      </div>
-
-      <div className="top-bar-divider" />
-
-      <div className="top-bar-stat">
-        <span
-          className="top-bar-stat-value"
+      <div className="top-bar-engine">
+        <div
+          className="top-bar-control"
           title={
-            lastRate === null
-              ? "No measurement yet — send a message to watch the engine live"
-              : "Tokens per second, measured live"
+            cacheApplicable
+              ? KV_CACHE_HELP
+              : `${KV_CACHE_HELP} Only applies to GPT-2 — the HuggingFace models manage their own cache.`
           }
         >
-          {lastRate === null ? "—" : lastRate.toFixed(0)}
-        </span>
-        <span className="top-bar-stat-meta">
-          <span className="top-bar-stat-label">
-            tok/s{cacheState ? ` · cache ${cacheState}` : ""}
-          </span>
-          {delta && (
-            <span className="tag tag-accent top-bar-delta" title={delta.title}>
-              {delta.text}
-            </span>
-          )}
-        </span>
-      </div>
+          <span className="top-bar-stat-label">KV cache</span>
+          <Switch
+            checked={cacheApplicable && useCache}
+            onChange={setUseCache}
+            disabled={!cacheApplicable || streaming !== null}
+            label="KV cache"
+          />
+        </div>
 
-      <div className="top-bar-divider" />
+        <div className="top-bar-engine-divider" />
 
-      {metrics?.peak_memory_mb !== undefined && (
         <div className="top-bar-stat">
           <span
             className="top-bar-stat-value"
-            title="Peak memory the engine used during the last reply"
+            title={
+              lastRate === null
+                ? "No measurement yet — send a message to watch the engine live"
+                : "Tokens per second, measured live"
+            }
           >
-            {metrics.peak_memory_mb.toFixed(0)}
+            {lastRate === null ? "—" : lastRate.toFixed(0)}
           </span>
-          <span className="top-bar-stat-label">MB peak</span>
+          <span className="top-bar-stat-meta">
+            <span className="top-bar-stat-label">
+              tok/s{cacheState ? ` · cache ${cacheState}` : ""}
+            </span>
+            {delta && (
+              <span className="tag tag-accent top-bar-delta" title={delta.title}>
+                {delta.text}
+              </span>
+            )}
+          </span>
         </div>
+      </div>
+
+      {metrics?.peak_memory_mb !== undefined && (
+        <>
+          <div className="top-bar-divider" />
+          <div className="top-bar-stat is-secondary">
+            <span
+              className="top-bar-stat-value"
+              title="Peak memory the engine used during the last reply"
+            >
+              {metrics.peak_memory_mb.toFixed(0)}
+            </span>
+            <span className="top-bar-stat-label">MB peak</span>
+          </div>
+        </>
       )}
     </header>
   );
