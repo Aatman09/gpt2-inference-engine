@@ -7,6 +7,7 @@ export default function ChatPage() {
   const { activeConversation, streaming, sendMessage, stop, activeId } = useChat();
   const [draft, setDraft] = useState("");
   const scrollRef = useRef(null);
+  const inputRef = useRef(null);
 
   const streamingText =
     streaming && streaming.conversationId === activeId ? streaming.text : null;
@@ -19,6 +20,13 @@ export default function ChatPage() {
     setDraft("");
   }, [activeConversation?.id]);
 
+  useEffect(() => {
+    const input = inputRef.current;
+    if (!input) return;
+    input.style.height = "auto";
+    input.style.height = `${Math.min(input.scrollHeight, 200)}px`;
+  }, [draft]);
+
   if (!activeConversation) {
     return (
       <div className="chat-window empty-state">
@@ -30,7 +38,15 @@ export default function ChatPage() {
   // messages is null while a list summary is being hydrated with its full
   // history (see ChatContext's selectConversation)
   if (activeConversation.messages === null) {
-    return <div className="chat-window empty-state" />;
+    return (
+      <div className="chat-window" aria-busy="true" aria-label="Loading conversation">
+        <div className="message-list chat-skeleton" aria-hidden="true">
+          <span className="skeleton-line short" />
+          <span className="skeleton-line" />
+          <span className="skeleton-line medium" />
+        </div>
+      </div>
+    );
   }
 
   const handleSend = () => {
@@ -67,12 +83,15 @@ export default function ChatPage() {
       <div className="composer">
         <div className="composer-shell">
           <textarea
+            ref={inputRef}
             className="composer-input"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Message achat…"
             rows={1}
+            aria-label="Message achat"
+            aria-keyshortcuts="Enter"
           />
           {streamingText !== null ? (
             <button
@@ -96,6 +115,7 @@ export default function ChatPage() {
             </button>
           )}
         </div>
+        <p className="composer-hint">Enter to send · Shift + Enter for a new line</p>
       </div>
     </div>
   );

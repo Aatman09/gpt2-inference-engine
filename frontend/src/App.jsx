@@ -13,7 +13,15 @@ export default function App() {
 
   // still checking for an existing session (GET /auth/me) -- render nothing
   // rather than flashing the landing page before the check resolves
-  if (loading) return null;
+  if (loading) {
+    return (
+      <main className="app-loading" aria-busy="true" aria-label="Loading achat">
+        <div className="app-loading-mark" aria-hidden="true" />
+        <strong>achat</strong>
+        <span>Preparing your workspace…</span>
+      </main>
+    );
+  }
 
   // Logged out: landing page at /, auth screens, everything else bounces
   // back to the landing page.

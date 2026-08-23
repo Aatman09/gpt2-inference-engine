@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useChat } from "../context/ChatContext";
 import { useTheme } from "../context/ThemeContext";
@@ -35,13 +35,25 @@ export default function ConversationPanel() {
   // which conversation row has its ... menu open, if any
   const [rowMenuId, setRowMenuId] = useState(null);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
   const inputRef = useRef(null);
   const accountRef = useRef(null);
+  const deleteDialogRef = useRef(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     if (editingId) inputRef.current?.select();
   }, [editingId]);
+
+  useEffect(() => {
+    if (!deleteTarget) return;
+    deleteDialogRef.current?.focus();
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") setDeleteTarget(null);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [deleteTarget]);
 
   // one dismissal path for both menus: any pointer press outside the open
   // menu, or Escape
@@ -107,10 +119,18 @@ export default function ConversationPanel() {
     setEditingId(null);
   };
 
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    await removeConversation(deleteTarget.id);
+    setDeleteTarget(null);
+  };
+
   return (
     <aside className="conversation-panel">
       <div className="drawer-head">
-        <span className="drawer-brand">achat</span>
+        <Link className="drawer-brand" to="/chat" onClick={() => closeIfOverlay()}>
+          achat
+        </Link>
         <button
           type="button"
           className="icon-btn"
@@ -135,8 +155,6 @@ export default function ConversationPanel() {
           <div
             key={conv.id}
             className={`conversation-item${conv.id === activeId ? " active" : ""}`}
-            onClick={() => open(conv.id)}
-            title={conv.title}
           >
             {editingId === conv.id ? (
               <input
@@ -153,7 +171,14 @@ export default function ConversationPanel() {
               />
             ) : (
               <>
-                <span className="conversation-title">{conv.title}</span>
+                <button
+                  type="button"
+                  className="conversation-title"
+                  onClick={() => open(conv.id)}
+                  title={conv.title}
+                >
+                  {conv.title}
+                </button>
                 {/* always rendered, not hover-revealed: the old hover-only
                     actions were unreachable by touch and keyboard, which the
                     2026-08-18 critique flagged as a P1 */}
@@ -191,7 +216,7 @@ export default function ConversationPanel() {
                       onClick={(e) => {
                         e.stopPropagation();
                         setRowMenuId(null);
-                        removeConversation(conv.id);
+                        setDeleteTarget(conv);
                       }}
                     >
                       <TrashIcon size={14} />
@@ -245,6 +270,19 @@ export default function ConversationPanel() {
           <MoreIcon size={16} />
         </button>
       </div>
+
+      {deleteTarget && (
+        <div className="confirm-layer" role="presentation">
+          <div ref={deleteDialogRef} className="confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="delete-title" aria-describedby="delete-description" tabIndex={-1}>
+            <h2 id="delete-title">Delete this chat?</h2>
+            <p id="delete-description">“{deleteTarget.title}” will be permanently removed.</p>
+            <div className="confirm-actions">
+              <button type="button" className="btn btn-ghost" onClick={() => setDeleteTarget(null)}>Cancel</button>
+              <button type="button" className="btn btn-danger" onClick={confirmDelete}>Delete chat</button>
+            </div>
+          </div>
+        </div>
+      )}
     </aside>
   );
 }

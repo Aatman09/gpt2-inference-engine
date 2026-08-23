@@ -112,11 +112,6 @@ export default function SettingsPage() {
             />
           </div>
 
-          <hr className="hr" />
-          <div className="setting-placeholder">
-            <div>More performance controls land here as they ship.</div>
-            <button type="button" className="btn btn-ghost" disabled>+ Add metric</button>
-          </div>
         </div>
       )}
 
@@ -133,7 +128,7 @@ export default function SettingsPage() {
               <div className="setting-label">Dark mode</div>
               <div className="setting-desc">
                 Defaults to your system preference on first visit, then remembers your
-                choice. Also switchable from the icon rail.
+                choice. Also available from the account menu.
               </div>
             </div>
             <Switch checked={theme === "dark"} onChange={toggleTheme} label="Dark mode" />
