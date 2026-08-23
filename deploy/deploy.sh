@@ -15,10 +15,25 @@ echo "==> pulling latest main"
 git fetch origin main
 git reset --hard origin/main
 
-echo "==> building image"
+# Auto-detect whether this box actually has a GPU (nvidia-smi only exists on
+# a GPU-driver-installed host) rather than hardcoding one or the other --
+# the same script runs unmodified on a CPU test instance (today) and the
+# real GPU box (once the AWS quota clears), picking the matching torch
+# build (see pyproject.toml's cpu/gpu extras) and Docker GPU flag for each.
+if command -v nvidia-smi >/dev/null 2>&1; then
+  echo "==> GPU detected, building with CUDA torch"
+  BUILD_TARGET=gpu
+  GPU_FLAG="--gpus all"
+else
+  echo "==> no GPU detected, building CPU-only"
+  BUILD_TARGET=cpu
+  GPU_FLAG=""
+fi
+
+echo "==> building image (TARGET=$BUILD_TARGET)"
 # --pull keeps the base python/node images current; the layer cache still
 # makes this fast when only application code changed
-docker build --pull -t "$IMAGE_NAME" .
+docker build --pull --build-arg TARGET="$BUILD_TARGET" -t "$IMAGE_NAME" .
 
 echo "==> restarting container"
 # stop+remove the old container by name (idempotent -- a fresh box has none)
@@ -29,11 +44,13 @@ docker stop "$CONTAINER_NAME" 2>/dev/null || true
 docker rm "$CONTAINER_NAME" 2>/dev/null || true
 
 # --env-file, not baked-in secrets -- .env lives only on the box (see
-# SETUP.md step 5), never in the image or the repo
+# SETUP.md step 5), never in the image or the repo. $GPU_FLAG is
+# deliberately unquoted -- it's empty on a CPU box, and quoting an empty
+# string would pass docker run a stray "" argument.
 docker run -d \
   --name "$CONTAINER_NAME" \
   --restart unless-stopped \
-  --gpus all \
+  $GPU_FLAG \
   -p 127.0.0.1:7860:7860 \
   --env-file "$REPO_DIR/.env" \
   "$IMAGE_NAME"

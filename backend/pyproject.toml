@@ -13,7 +13,37 @@ dependencies = [
     "pyjwt>=2.13.0",
     "sqlalchemy>=2.0.51",
     "tiktoken>=0.13.0",
-    "torch>=2.13.0",
     "transformers>=5.13.1",
     "uvicorn>=0.51.0",
+]
+
+# torch is deliberately NOT in the base dependency list -- the plain PyPI
+# wheel bundles its own CUDA runtime libraries even with no GPU to use them,
+# which is most of why the Docker image hit 15.8GB on HF Spaces' CPU-only
+# tier. Every install (local dev included) must pick one explicitly:
+#   uv sync --extra cpu   -- CPU-only wheel, ~200MB. Use on a CPU-only
+#                             machine/deploy (this project's dev laptop,
+#                             HF Spaces free tier).
+#   uv sync --extra gpu   -- regular CUDA-bundled wheel, ~2.5GB. Use on a
+#                             CUDA-capable box (e.g. an EC2 GPU instance).
+[project.optional-dependencies]
+cpu = ["torch>=2.13.0"]
+gpu = ["torch>=2.13.0"]
+
+[tool.uv]
+conflicts = [
+    [
+        { extra = "cpu" },
+        { extra = "gpu" },
+    ],
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cpu", extra = "cpu" },
 ]

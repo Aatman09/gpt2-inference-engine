@@ -24,10 +24,22 @@ WORKDIR /app
 # in the repo
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
+# TARGET=cpu (default -- HF Spaces' free tier has no GPU) pulls the CPU-only
+# torch wheel via the "cpu" extra in pyproject.toml, dropping ~2.3GB of
+# unused CUDA runtime libraries from the image. Build with
+# `--build-arg TARGET=gpu` on a CUDA-capable host (e.g. EC2) to keep the
+# regular CUDA-bundled wheel instead.
+ARG TARGET=cpu
+
 # dependency manifests first, so the (slow, ~2GB torch) install layer is
 # cached unless the dependencies themselves change
 COPY backend/pyproject.toml backend/uv.lock ./backend/
-RUN cd backend && uv sync --frozen --no-dev
+RUN cd backend && \
+    if [ "$TARGET" = "cpu" ]; then \
+        uv sync --frozen --no-dev --extra cpu; \
+    else \
+        uv sync --frozen --no-dev; \
+    fi
 
 # model_kv.py lives at the repo root and is imported by the engine
 COPY model_kv.py ./
