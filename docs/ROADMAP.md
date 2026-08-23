@@ -5,7 +5,7 @@ ChatGPT-style webapp. Phased so each layer is testable before the next stacks on
 
 ## Current phase
 
-**Phase 3 — auth (password auth done, Google OAuth outstanding)**
+**Phase 3 — auth (done; Google OAuth needs a Cloud Console client to go live)**
 **Phase 4 — frontend rewire (done, see below)**
 
 Phases 0-2 are done: Postgres up (Docker, Postgres 18.4), `conversations` table +
@@ -16,14 +16,22 @@ ownership checks on every conversation/generate/stop route are built and tested
 (cross-user access correctly 404s). Frontend has a real login/signup screen
 (`AuthScreen.jsx`, `AuthContext.jsx`) gating the chat UI.
 
-**Outstanding in Phase 3: Google OAuth.** `/auth/google/login` and
-`/auth/google/callback` are not yet built -- the frontend's "Continue with
-Google" button links to `/auth/google/login`, which currently 404s. Needs a
-Google Cloud Console OAuth client (manual, non-code setup: consent screen +
-Web application credentials + `http://localhost:8010/auth/google/callback`
-registered as an authorized redirect URI) before the routes are testable.
-Design already decided (see Phase 3 section below): backend-driven
-authorization-code flow, hand-rolled via `httpx`, no `authlib`.
+**Google OAuth is built and verified**, not just wired: `/auth/google/login` and
+`/auth/google/callback` (`backend/app/app.py`), the authorize-URL/state/token-
+exchange/find-or-create helpers (`backend/app/auth.py`) -- backend-driven
+authorization-code flow, hand-rolled via `httpx`, no `authlib`, matching the
+design below. Verified against a live server: consent URL builds correctly,
+CSRF state cookie is checked (forged/missing state rejected), account linking by
+verified email preserves the existing password, `email_verified: false` is
+rejected outright. `GET /health` reports `google_enabled`, and the frontend
+button (`AuthScreen.jsx`) only renders when that's true -- so with no credentials
+configured it hides itself instead of linking to a 404/503.
+
+**Still needed to go live:** a Google Cloud Console OAuth client (manual,
+non-code setup: consent screen + Web application credentials +
+`http://localhost:8010/auth/google/callback` registered as an authorized
+redirect URI, plus the production callback URL once deployed), then
+`GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` added to `.env` / the HF Space secrets.
 
 ## Build phases
 

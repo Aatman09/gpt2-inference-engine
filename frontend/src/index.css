@@ -259,7 +259,14 @@ h1, h2, h3 {
 .app-shell {
   display: flex;
   flex-direction: column;
+  /* 100vh is the *maximum* possible viewport (browser chrome hidden), not
+     the currently-visible one -- on mobile, scrolling toggles the address
+     bar in/out without 100vh changing to match, so a shell pinned to it
+     visibly clips the top bar or composer depending on scroll direction.
+     100dvh tracks the real visible viewport as chrome shows/hides; 100vh
+     stays as the fallback for browsers that don't support dvh yet. */
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
 }
 
@@ -653,6 +660,12 @@ h1, h2, h3 {
   /* overflow-wrap: anywhere beats word-break for unbroken runs the model
      loves to emit (URLs, token soup, emoji) */
   overflow-wrap: anywhere;
+  /* .message-row sets min-width: 0 so it can shrink below its content's
+     natural width, but that doesn't cascade to this child automatically --
+     a long unbroken <pre> line (code blocks) still forced this element,
+     and the whole row, wider than max-width without this, defeating both
+     the row's max-width ceiling and the pre's own overflow-x: auto below */
+  min-width: 0;
 }
 
 /* a short user turn ("wow") floating as bare text at the far edge of a

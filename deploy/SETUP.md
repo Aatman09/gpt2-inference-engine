@@ -123,8 +123,17 @@ secret**, add all of these:
 
 ## 7. First-time server setup (SSH in manually, once)
 
+Commands below are for **Amazon Linux 2023** (`dnf`, not `apt`; no
+`sites-available`/`sites-enabled` convention -- nginx.conf includes
+`/etc/nginx/conf.d/*.conf` directly). If you launched an Ubuntu AMI instead,
+use `apt-get` and the `sites-available`/`sites-enabled` symlink pattern from
+Debian-based distros instead of what's below.
+
 ```bash
-ssh -i achat-deploy.pem ubuntu@<elastic-ip>   # or ec2-user@ for Amazon Linux
+ssh -i achat-deploy.pem ec2-user@<elastic-ip>
+
+# git isn't preinstalled on the base Amazon Linux 2023 AMI
+sudo dnf install -y git
 
 # clone the repo
 git clone https://github.com/Aatman09/gpt2-inference-engine.git ~/achat
@@ -147,21 +156,33 @@ GOOGLE_CLIENT_SECRET="<same>"
 GOOGLE_REDIRECT_URI="https://<your-subdomain>/auth/google/callback"
 EOF
 
+# Docker isn't preinstalled on the base Amazon Linux 2023 AMI either (only
+# the Deep Learning AMIs ship with it). Install it, then add ec2-user to the
+# docker group so deploy.sh doesn't need sudo for every docker command --
+# log out and back in (or `newgrp docker`) for the group change to apply.
+sudo dnf install -y docker
+sudo systemctl enable --now docker
+sudo usermod -aG docker ec2-user
+newgrp docker
+
+# --- GPU-only: skip this whole block on a plain CPU instance ---
 # verify Docker can actually see the GPU -- if this fails, the app will
 # still start but silently fall back to CPU (torch.cuda.is_available() just
 # returns False, no error), which is a confusing thing to debug later.
 # Deep Learning AMIs usually have the NVIDIA Container Toolkit preinstalled;
 # if this command fails, install it: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html
 docker run --rm --gpus all nvidia/cuda:12.4.0-base-ubuntu22.04 nvidia-smi
+# --- end GPU-only block ---
 
-# install nginx + certbot (Deep Learning AMI has Docker already; this adds
-# the reverse proxy pieces)
-sudo apt-get update && sudo apt-get install -y nginx certbot python3-certbot-nginx
+# install nginx + certbot
+sudo dnf install -y nginx
+sudo systemctl enable --now nginx
+sudo dnf install -y python3-pip
+sudo python3 -m pip install certbot certbot-nginx
 
-# put the proxy config in place -- DOMAIN placeholder gets swapped for real
-# once you've told me the subdomain from step 4
-sudo cp deploy/nginx/achat.conf /etc/nginx/sites-available/achat.conf
-sudo ln -s /etc/nginx/sites-available/achat.conf /etc/nginx/sites-enabled/
+# put the proxy config in place -- Amazon Linux's nginx.conf already
+# includes /etc/nginx/conf.d/*.conf, so this is the whole "enable" step
+sudo cp deploy/nginx/achat.conf /etc/nginx/conf.d/achat.conf
 sudo nginx -t && sudo systemctl reload nginx
 
 # issue the real certificate -- this also rewrites achat.conf's HTTP block
@@ -171,6 +192,11 @@ sudo certbot --nginx -d <your-subdomain>
 # first deploy, by hand
 bash deploy/deploy.sh
 ```
+
+`deploy.sh` auto-detects whether the box has a GPU (checks for `nvidia-smi`)
+and picks the right Docker build target and `--gpus` flag accordingly, so
+the exact same script works unmodified on this CPU test instance today and
+the real GPU box later -- nothing to configure by hand either way.
 
 After this, every `git push` to `main` triggers the GitHub Actions workflow
 automatically — no more manual SSH needed for routine updates.
