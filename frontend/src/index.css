@@ -1013,12 +1013,16 @@ h1, h2, h3 {
   50% { opacity: 0; }
 }
 
+/* spans the full width of the chat column rather than sharing the message
+   list's 1100px reading cap -- a composer is a control, not prose, so the
+   line-length argument that constrains messages does not apply to it.
+   Column, not row: the shell and the hint below it are siblings, and as a
+   row the hint was competing with the textarea for horizontal space,
+   squeezing the input badly on narrow screens. */
 .composer {
-  padding: 0 var(--space-8) var(--space-6);
+  padding: 0 var(--space-6) var(--space-4);
   display: flex;
-  /* matches .message-list so the input lines up with the messages above it */
-  max-width: min(1100px, 100%);
-  margin: 0 auto;
+  flex-direction: column;
   width: 100%;
   flex: none;
 }
@@ -1027,7 +1031,11 @@ h1, h2, h3 {
    ring, so the textarea and send button read as one floating control
    instead of a bordered field beside a separate button */
 .composer-shell {
-  flex: 1;
+  /* flex:1 here used to size it along the parent's row axis; the parent is
+     a column now, so it must not stretch vertically -- width comes from
+     the column's default stretch instead */
+  flex: none;
+  width: 100%;
   min-width: 0;
   display: flex;
   align-items: flex-end;
@@ -1051,7 +1059,7 @@ h1, h2, h3 {
   background: none;
   padding: 6px 0;
   color: var(--color-text);
-  font-size: 14px;
+  font-size: var(--text-base);
   font-family: inherit;
   line-height: 1.4;
   max-height: 200px;
