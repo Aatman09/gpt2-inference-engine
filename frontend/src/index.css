@@ -270,26 +270,55 @@ h1, h2, h3 {
   overflow: hidden;
 }
 
+/* Three slots, as in the reference: menu, the model name as the title, and
+   one overflow. The equal-width flanks keep the centre slot optically
+   centred no matter how long the model name is. */
 .top-bar {
   display: flex;
   align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-3) var(--space-4);
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
   flex: none;
+  /* its own stacking context, above .app-body -- otherwise the bar's
+     dropdowns (model picker, engine overflow) lose to the drawer, which
+     shares their z-index but comes later in DOM order, and render clipped
+     behind it whenever both are open */
+  position: relative;
+  z-index: 40;
 }
 
-.top-bar-brand {
-  font-family: var(--font-heading);
-  font-weight: 800;
-  font-size: var(--text-lg);
-  letter-spacing: -0.02em;
-  color: var(--color-text);
-  text-decoration: none;
-}
-
-/* pushes everything after the model picker to the right-hand side */
 .top-bar-model {
-  margin-right: auto;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+}
+
+/* square, quiet icon button -- shared by the top bar's menu/overflow and
+   the drawer's close */
+.icon-btn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: var(--color-text);
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+
+.icon-btn:hover {
+  background: color-mix(in srgb, var(--color-text) 8%, transparent);
+}
+
+.icon-btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
 }
 
 /* the engine cluster: cache toggle, live rate, delta, and peak memory used
@@ -301,32 +330,6 @@ h1, h2, h3 {
    behave identically. */
 .top-bar-engine {
   position: relative;
-}
-
-.top-bar-engine-badge {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px var(--space-3);
-  border: 2px solid transparent;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface));
-  color: inherit;
-  font-family: inherit;
-  cursor: pointer;
-}
-
-.top-bar-engine-badge:hover {
-  background: color-mix(in srgb, var(--color-accent) 14%, var(--color-surface));
-}
-
-.top-bar-engine-badge:focus-visible {
-  outline: none;
-  border-color: var(--color-accent);
-}
-
-.top-bar-engine-badge svg {
-  color: var(--color-muted);
 }
 
 .top-bar-engine-menu {
@@ -397,18 +400,11 @@ h1, h2, h3 {
   min-height: 0;
 }
 
-/* --- Icon rail --- */
-
-.rail {
-  width: 56px;
-  flex: none;
-  background: var(--color-surface);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-2);
-  padding-top: var(--space-4);
-}
+/* --- Rail-derived pieces ---
+   The 56px icon rail itself is gone (its actions moved into the drawer),
+   but these two survive it: .rail-link is still the quiet icon-button
+   style used by the auth screen and landing header, and .rail-avatar is
+   the account monogram, now in the drawer's bottom row. */
 
 .rail-link {
   display: flex;
@@ -444,10 +440,6 @@ h1, h2, h3 {
   border-color: var(--color-accent);
 }
 
-.rail-spacer {
-  flex: 1;
-}
-
 .rail-avatar {
   width: 30px;
   height: 30px;
@@ -460,11 +452,6 @@ h1, h2, h3 {
   font-size: 12px;
   font-weight: 700;
   flex: none;
-  cursor: default;
-}
-
-.rail-logout {
-  margin-bottom: var(--space-4);
 }
 
 /* --- Conversation panel ---
@@ -482,27 +469,66 @@ h1, h2, h3 {
 .conversation-panel {
   position: absolute;
   top: 0;
-  left: 56px; /* sits past the rail, which stays visible underneath */
+  left: 0; /* the rail is gone -- the drawer starts at the viewport edge */
   bottom: 0;
   z-index: 20;
-  width: min(280px, calc(100vw - 56px));
+  /* ~72% of a phone, leaving the content visibly beside it rather than
+     covered; capped so it never becomes a whole second column on desktop */
+  width: min(300px, 72vw);
   background: var(--color-surface);
   display: flex;
   flex-direction: column;
-  padding: var(--space-3) var(--space-2);
+  padding: var(--space-2);
   min-height: 0;
   box-shadow: var(--shadow-md);
 }
 
-.conversation-panel .new-chat-btn {
-  justify-content: flex-start;
-  font-size: 13.5px;
+.drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-1) var(--space-2) var(--space-3);
+}
+
+.drawer-brand {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: var(--text-lg);
+  letter-spacing: -0.02em;
+}
+
+/* the drawer's own top-level actions (New chat today; the natural home for
+   anything the rail used to hold) */
+.drawer-nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: 10px var(--space-2);
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: var(--text-base);
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+
+.drawer-nav-item:hover {
+  background: color-mix(in srgb, var(--color-text) 8%, transparent);
+}
+
+.drawer-section-label {
+  padding: var(--space-4) var(--space-2) var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-muted);
 }
 
 .conversation-list {
   flex: 1;
   overflow-y: auto;
-  margin-top: var(--space-3);
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -515,6 +541,7 @@ h1, h2, h3 {
 }
 
 .conversation-item {
+  position: relative; /* anchors the row's ... menu */
   display: flex;
   align-items: center;
   gap: 6px;
@@ -557,13 +584,10 @@ h1, h2, h3 {
   border-radius: 5px;
   color: var(--color-muted);
   cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.12s ease, background-color 0.12s ease, color 0.12s ease;
-}
-
-.conversation-item:hover .conversation-action,
-.conversation-action:focus-visible {
-  opacity: 1;
+  /* always visible, never hover-revealed: the old opacity:0-until-hover
+     actions were unreachable on touch and by keyboard (2026-08-18 critique,
+     P1). A permanently visible ... is also what the reference does. */
+  transition: background-color 0.12s ease, color 0.12s ease;
 }
 
 .conversation-action:hover {
@@ -576,8 +600,106 @@ h1, h2, h3 {
   outline-offset: 1px;
 }
 
-.conversation-delete:hover {
+/* per-row action menu, opened by that ... button */
+.conversation-row-menu {
+  position: absolute;
+  top: calc(100% - 2px);
+  right: 4px;
+  z-index: 30;
+  min-width: 150px;
+  padding: var(--space-1);
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface-raised);
+  border: 2px solid var(--color-divider);
+  border-radius: 10px;
+  box-shadow: var(--shadow-md);
+}
+
+.conversation-row-menu button,
+.drawer-account-menu button {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: 9px 10px;
+  border: none;
+  border-radius: 7px;
+  background: none;
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: var(--text-base);
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+
+.conversation-row-menu button:hover,
+.drawer-account-menu button:hover {
+  background: color-mix(in srgb, var(--color-text) 10%, transparent);
+}
+
+.conversation-row-menu button.is-danger,
+.drawer-account-menu button.is-danger {
   color: var(--color-danger);
+}
+
+/* --- Drawer account row, pinned at the bottom --- */
+
+.drawer-account {
+  position: relative;
+  flex: none;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-divider);
+}
+
+.drawer-account-trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: 8px var(--space-2);
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: var(--text-base);
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+
+.drawer-account-trigger:hover {
+  background: color-mix(in srgb, var(--color-text) 8%, transparent);
+}
+
+.drawer-account-name {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* opens upward -- there is no room below a bottom-pinned trigger */
+.drawer-account-menu {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: var(--space-1);
+  right: var(--space-1);
+  z-index: 30;
+  padding: var(--space-1);
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface-raised);
+  border: 2px solid var(--color-divider);
+  border-radius: 10px;
+  box-shadow: var(--shadow-md);
+}
+
+.drawer-account-menu .hr {
+  margin: var(--space-1) 0;
 }
 
 .conversation-rename {
@@ -840,6 +962,14 @@ h1, h2, h3 {
   display: flex;
   flex: 1;
   min-height: 0;
+  /* scrolls as one page (nav + content together) rather than giving
+     .settings-content its own overflow: auto -- a position:absolute
+     dropdown (ModelPicker's menu) inside an overflow:auto ancestor gets
+     clipped by that ancestor's scroll viewport regardless of z-index, which
+     is exactly what was hiding the model picker's menu behind the chat on
+     the General section. Nothing here scrolls independently anymore, so
+     nothing clips a popover that needs to escape its trigger's row. */
+  overflow-y: auto;
   /* light touch only -- this is a task screen, so the wash stays quiet
      enough to never compete with the form content sitting on top of it */
   background: radial-gradient(900px 500px at 100% 0%, var(--color-accent-100), transparent 60%);
@@ -880,7 +1010,6 @@ h1, h2, h3 {
   flex-direction: column;
   gap: var(--space-6);
   max-width: 640px;
-  overflow-y: auto;
 }
 
 .settings-content h2 {
@@ -1561,45 +1690,24 @@ h1, h2, h3 {
    rendered by App.jsx while the drawer is open, so no display:none toggle
    is needed here. Universal, not mobile-only: the panel is a flyout at
    every width now, see .conversation-panel above. */
+/* Transparent by design: the reference leaves the content fully readable
+   beside the open drawer rather than dimming it. This is purely the
+   tap-outside-to-close target. */
 .app-body-backdrop {
   position: absolute;
-  inset: 0 0 0 56px;
-  background: rgba(0, 0, 0, 0.35);
+  inset: 0;
+  background: transparent;
   border: none;
   padding: 0;
   z-index: 10;
   cursor: default;
 }
 
-/* rail sits above the panel/backdrop so its own controls (new chat,
-   settings, theme, logout) stay clickable while the flyout is open */
-.rail {
-  z-index: 21;
-}
-
-/* --- Chat app shell, mobile --- */
+/* --- Chat app shell, mobile ---
+   The shell needs almost nothing here now: the top bar is three fixed
+   slots and the drawer is width-relative, so both already fit. What's
+   left is content padding and the settings page's own two-column layout. */
 @media (max-width: 640px) {
-  .conversation-panel {
-    width: min(280px, calc(100vw - 56px));
-  }
-
-  /* --- Top bar: keep only what fits, let the rest scroll instead of wrap
-     or silently overflow the viewport width --- */
-  .top-bar {
-    gap: var(--space-2);
-    padding: var(--space-2) var(--space-3);
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-
-  .top-bar::-webkit-scrollbar {
-    display: none;
-  }
-
-  .top-bar-brand {
-    flex: none;
-  }
-
   .message-list,
   .composer {
     padding-left: var(--space-4);

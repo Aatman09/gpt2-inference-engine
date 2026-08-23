@@ -28,6 +28,38 @@ export function ArrowRightIcon({ size = 14 }) {
   );
 }
 
+export function MenuIcon({ size = 18 }) {
+  return (
+    <svg width={size} height={size} {...base}>
+      <path d="M4 7h16" />
+      <path d="M4 12h16" />
+      <path d="M4 17h10" />
+    </svg>
+  );
+}
+
+export function CloseIcon({ size = 18 }) {
+  return (
+    <svg width={size} height={size} {...base}>
+      <path d="M18 6 6 18" />
+      <path d="m6 6 12 12" />
+    </svg>
+  );
+}
+
+// horizontal ellipsis -- the per-row and top-bar overflow affordance.
+// Filled dots rather than stroked circles: at 3px they read as dots either
+// way, and fill avoids a muddy ring at small sizes.
+export function MoreIcon({ size = 18 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
+      <circle cx="5" cy="12" r="1.6" />
+      <circle cx="12" cy="12" r="1.6" />
+      <circle cx="19" cy="12" r="1.6" />
+    </svg>
+  );
+}
+
 export function HistoryIcon({ size = 16 }) {
   return (
     <svg width={size} height={size} {...base}>

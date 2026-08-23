@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
 import { useChat } from "../context/ChatContext";
 import ModelPicker from "./ModelPicker";
 import Switch from "./Switch";
-import { ChevronDownIcon } from "./icons";
+import { MenuIcon, MoreIcon } from "./icons";
 
 const KV_CACHE_HELP =
   "Reuses attention state across turns, so each new token costs one forward pass instead of a full recompute.";
 
 export default function TopBar() {
-  const { metrics, useCache, setUseCache, modelName, setModelName, streaming } = useChat();
+  const { metrics, useCache, setUseCache, modelName, setModelName, streaming, togglePanel } =
+    useChat();
   const [engineOpen, setEngineOpen] = useState(false);
   const engineRef = useRef(null);
 
@@ -77,35 +77,37 @@ export default function TopBar() {
 
   return (
     <header className="top-bar">
-      <Link to="/chat" className="top-bar-brand">achat</Link>
+      <button
+        type="button"
+        className="icon-btn"
+        onClick={togglePanel}
+        aria-label="Open menu"
+        title="Open menu"
+      >
+        <MenuIcon />
+      </button>
 
+      {/* the model name IS the title, as in the reference -- one slot doing
+          both jobs instead of a brand wordmark and a separate picker */}
       <div className="top-bar-model">
         <ModelPicker value={modelName} onChange={setModelName} disabled={streaming !== null} />
       </div>
 
-      {/* Collapsed into one badge + click-to-expand panel -- the KV-cache
-          switch, live tok/s, cache delta, and peak memory used to sit
-          permanently in the bar, competing with the model picker and the
-          chat itself for attention. The proof-of-engineering material is
-          still one click away, not gone; it just isn't load-bearing on
-          every pixel of the bar by default. */}
+      {/* everything the engine exposes -- KV-cache switch, live tok/s, cache
+          delta, peak memory -- lives behind this overflow. It used to sit
+          permanently expanded across the bar, competing with the model name
+          and the chat itself; the proof is one tap away, not on every pixel. */}
       <div className="top-bar-engine" ref={engineRef}>
         <button
           type="button"
-          className="top-bar-engine-badge"
+          className="icon-btn"
           onClick={() => setEngineOpen((v) => !v)}
           aria-haspopup="true"
           aria-expanded={engineOpen}
           aria-label="Engine metrics"
-          title={
-            lastRate === null
-              ? "No measurement yet — send a message to watch the engine live"
-              : "Tokens per second, measured live — click for KV cache and memory"
-          }
+          title="KV cache, tokens/sec and memory"
         >
-          <span className="top-bar-stat-value">{lastRate === null ? "—" : lastRate.toFixed(0)}</span>
-          <span className="top-bar-stat-label">tok/s</span>
-          <ChevronDownIcon size={12} />
+          <MoreIcon />
         </button>
 
         {engineOpen && (

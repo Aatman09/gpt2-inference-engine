@@ -1,6 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import TopBar from "./components/TopBar";
-import Rail from "./components/Rail";
 import ConversationPanel from "./components/ConversationPanel";
 import AuthScreen from "./components/AuthScreen";
 import LandingPage from "./pages/LandingPage";
@@ -36,35 +35,35 @@ export default function App() {
     <ChatProvider>
       <Routes>
         <Route path="/chat" element={<AppShell><ChatPage /></AppShell>} />
-        <Route path="/settings" element={<AppShell wide><SettingsPage /></AppShell>} />
+        <Route path="/settings" element={<AppShell><SettingsPage /></AppShell>} />
         <Route path="*" element={<Navigate to="/chat" replace />} />
       </Routes>
     </ChatProvider>
   );
 }
 
-// `wide` pages (settings) take the full body width; the chat view opens
-// the conversation panel as a click-to-open flyout, not a permanent
-// sidebar -- redesigned away from the old always-visible-unless-collapsed
-// column, which competed with the chat for space and needed a separate
-// mobile-only override to avoid overflowing narrow screens.
-function AppShell({ children, wide = false }) {
+// One drawer owns navigation at every width: it slides over the content
+// rather than pushing it, and holds what the old 56px icon rail used to
+// keep permanently on screen (new chat, settings, theme, account, logout)
+// alongside the conversation list. Two chrome layers collapsed into one
+// menu, so the chat itself gets the whole viewport by default.
+function AppShell({ children }) {
   const { panelCollapsed, togglePanel } = useChat();
-  const panelOpen = !wide && !panelCollapsed;
+  const panelOpen = !panelCollapsed;
 
   return (
     <div className="app-shell">
       <TopBar />
       <div className="app-body">
-        <Rail />
         {panelOpen && <ConversationPanel />}
-        {/* dims the chat and closes the flyout on an outside tap/click */}
+        {/* closes the drawer on an outside tap; deliberately transparent,
+            so the content stays fully readable beside the open drawer */}
         {panelOpen && (
           <button
             type="button"
             className="app-body-backdrop"
             onClick={togglePanel}
-            aria-label="Close chat list"
+            aria-label="Close menu"
             tabIndex={-1}
           />
         )}
