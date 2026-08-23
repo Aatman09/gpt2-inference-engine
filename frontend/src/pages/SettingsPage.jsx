@@ -176,12 +176,13 @@ export default function SettingsPage() {
           <hr className="hr" />
           <div className="setting-row">
             <div>
-              <div className="setting-label">Zoom</div>
+              <div className="setting-label">Text size</div>
               <div className="setting-desc">
-                Scales the whole interface. Stored on this device.
+                Scales the type, not the whole interface — larger text fills
+                the same layout rather than magnifying it. Stored on this device.
               </div>
             </div>
-            <div className="choice" role="radiogroup" aria-label="Zoom">
+            <div className="choice" role="radiogroup" aria-label="Text size">
               {[90, 100, 110, 125].map((level) => (
                 <button
                   key={level}

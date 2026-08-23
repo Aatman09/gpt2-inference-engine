@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
+import { NavLink } from "react-router-dom";
 import { useChat } from "../context/ChatContext";
 import ModelPicker from "./ModelPicker";
 import Switch from "./Switch";
-import { MenuIcon, MoreIcon } from "./icons";
+import { MenuIcon, MoreIcon, HomeIcon } from "./icons";
 
 const KV_CACHE_HELP =
   "Reuses attention state across turns, so each new token costs one forward pass instead of a full recompute.";
@@ -87,16 +88,57 @@ export default function TopBar() {
         <MenuIcon />
       </button>
 
-      {/* the model name IS the title, as in the reference -- one slot doing
-          both jobs instead of a brand wordmark and a separate picker */}
-      <div className="top-bar-model">
-        <ModelPicker value={modelName} onChange={setModelName} disabled={streaming !== null} />
+      {/* home: the way back to the chat from Settings without hunting
+          through the drawer's account menu */}
+      <NavLink
+        to="/chat"
+        className={({ isActive }) => `icon-btn${isActive ? " active" : ""}`}
+        aria-label="Chat"
+        title="Chat"
+      >
+        <HomeIcon />
+      </NavLink>
+
+      {/* KV cache sits in the bar itself, not behind the overflow: it is
+          the product's whole claim, and the live rate beside it is the
+          evidence that it works. Hiding the toggle made the one number
+          worth watching meaningless -- you could not see what produced it. */}
+      <div
+        className="top-bar-cache"
+        title={
+          cacheApplicable
+            ? KV_CACHE_HELP
+            : `${KV_CACHE_HELP} Only applies to GPT-2 — the HuggingFace models manage their own cache.`
+        }
+      >
+        <span className="top-bar-stat-label">KV cache</span>
+        <Switch
+          checked={cacheApplicable && useCache}
+          onChange={setUseCache}
+          disabled={!cacheApplicable || streaming !== null}
+          label="KV cache"
+        />
+        <span className="top-bar-rate">
+          <span className="top-bar-stat-value">
+            {lastRate === null ? "—" : lastRate.toFixed(0)}
+          </span>
+          <span className="top-bar-stat-label">tok/s</span>
+        </span>
+        {delta && (
+          <span className="tag tag-accent top-bar-delta" title={delta.title}>
+            {delta.text}
+          </span>
+        )}
       </div>
 
-      {/* everything the engine exposes -- KV-cache switch, live tok/s, cache
-          delta, peak memory -- lives behind this overflow. It used to sit
-          permanently expanded across the bar, competing with the model name
-          and the chat itself; the proof is one tap away, not on every pixel. */}
+      <div className="top-bar-spacer" />
+
+      {/* model picker moved off centre to sit beside the overflow -- the
+          centre slot was making it read as the page title rather than a
+          control */}
+      <ModelPicker value={modelName} onChange={setModelName} disabled={streaming !== null} />
+
+      {/* what is left for the overflow: the secondary readouts */}
       <div className="top-bar-engine" ref={engineRef}>
         <button
           type="button"
@@ -104,35 +146,18 @@ export default function TopBar() {
           onClick={() => setEngineOpen((v) => !v)}
           aria-haspopup="true"
           aria-expanded={engineOpen}
-          aria-label="Engine metrics"
-          title="KV cache, tokens/sec and memory"
+          aria-label="Engine details"
+          title="Cache comparison and memory"
         >
           <MoreIcon />
         </button>
 
         {engineOpen && (
-          <div className="top-bar-engine-menu" role="group" aria-label="Engine metrics">
-            <div
-              className="top-bar-control"
-              title={
-                cacheApplicable
-                  ? KV_CACHE_HELP
-                  : `${KV_CACHE_HELP} Only applies to GPT-2 — the HuggingFace models manage their own cache.`
-              }
-            >
-              <span className="top-bar-stat-label">KV cache</span>
-              <Switch
-                checked={cacheApplicable && useCache}
-                onChange={setUseCache}
-                disabled={!cacheApplicable || streaming !== null}
-                label="KV cache"
-              />
-            </div>
-
-            <hr className="hr" />
-
+          <div className="top-bar-engine-menu" role="group" aria-label="Engine details">
             <div className="top-bar-stat">
-              <span className="top-bar-stat-value">{lastRate === null ? "—" : lastRate.toFixed(0)}</span>
+              <span className="top-bar-stat-value">
+                {lastRate === null ? "—" : lastRate.toFixed(0)}
+              </span>
               <span className="top-bar-stat-meta">
                 <span className="top-bar-stat-label">
                   tok/s{cacheState ? ` · cache ${cacheState}` : ""}

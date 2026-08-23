@@ -17,15 +17,20 @@
 
   /* type scale -- named steps instead of one-off pixel values scattered
      per component; body/UI text sits at 13-15, display steps go up from
-     there so hierarchy reads as deliberate jumps, not incremental drift */
-  --text-xs: 11px;
-  --text-sm: 12.5px;
-  --text-base: 14px;
-  --text-md: 15px;
-  --text-lg: 17px;
-  --text-xl: 20px;
-  --text-2xl: 24px;
-  --text-3xl: 30px;
+     there so hierarchy reads as deliberate jumps, not incremental drift.
+     Every step multiplies by --text-scale, which Settings > Appearance
+     drives (ThemeContext). Scaling the ramp rather than the old CSS
+     `zoom` means text grows inside the existing layout instead of
+     inflating the whole interface along with it. */
+  --text-scale: 1;
+  --text-xs: calc(11px * var(--text-scale));
+  --text-sm: calc(12.5px * var(--text-scale));
+  --text-base: calc(14px * var(--text-scale));
+  --text-md: calc(15px * var(--text-scale));
+  --text-lg: calc(17px * var(--text-scale));
+  --text-xl: calc(20px * var(--text-scale));
+  --text-2xl: calc(24px * var(--text-scale));
+  --text-3xl: calc(30px * var(--text-scale));
 
   --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   --font-heading: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
@@ -287,11 +292,29 @@ h1, h2, h3 {
   z-index: 40;
 }
 
-.top-bar-model {
+/* pushes the model picker and overflow to the right edge, leaving the
+   cache cluster next to the nav buttons on the left */
+.top-bar-spacer {
   flex: 1;
-  min-width: 0;
+  min-width: var(--space-2);
+}
+
+/* the KV-cache control and the rate it produces, bound into one unit so
+   the toggle and its evidence read as cause and effect */
+.top-bar-cache {
   display: flex;
-  justify-content: center;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 5px var(--space-3);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface));
+  white-space: nowrap;
+}
+
+.top-bar-rate {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
 }
 
 /* square, quiet icon button -- shared by the top bar's menu/overflow and
@@ -319,6 +342,12 @@ h1, h2, h3 {
 .icon-btn:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: -2px;
+}
+
+/* NavLink's active route -- marks which of chat/settings you are on */
+.icon-btn.active {
+  background: var(--color-accent-100);
+  color: var(--color-accent-800);
 }
 
 /* the engine cluster: cache toggle, live rate, delta, and peak memory used
@@ -455,15 +484,15 @@ h1, h2, h3 {
 }
 
 /* --- Conversation panel ---
-   Closed by default at every width, opened as a flyout overlay by a single
-   click on the rail's toggle -- not a pushed inline column. Redesigned
-   from the original always-visible-unless-collapsed sidebar: switching
-   conversations was clunky with a permanent 240px column competing for
-   space with chat, and it needed a separate mobile-only override to not
-   break outright. One behavior, one set of rules, every screen size. */
+   Closed by default, opened by the top bar's menu button. Desktop and
+   mobile diverge deliberately: on a phone it overlays the content (there
+   is no room to do otherwise), while from 900px up it takes its own
+   column and pushes the chat aside, so it never covers the composer. */
 
 .app-body {
   position: relative;
+  display: flex;
+  min-height: 0;
 }
 
 .conversation-panel {
@@ -818,7 +847,7 @@ h1, h2, h3 {
 }
 
 .message-body {
-  font-size: 15px;
+  font-size: var(--text-md);
   line-height: 1.65;
   white-space: pre-wrap;
   /* overflow-wrap: anywhere beats word-break for unbroken runs the model
@@ -1701,6 +1730,27 @@ h1, h2, h3 {
   padding: 0;
   z-index: 10;
   cursor: default;
+}
+
+/* --- Desktop: the drawer takes its own column instead of overlaying ---
+   Overlaying is right on a phone (no room for two columns) but wrong on a
+   wide screen, where it covered the composer and the right edge of the
+   messages. Here it becomes a real flex sibling, so the chat reflows
+   beside it and nothing is hidden underneath. */
+@media (min-width: 900px) {
+  .conversation-panel {
+    position: static;
+    width: 300px;
+    flex: none;
+    box-shadow: none;
+    border-right: 1px solid var(--color-divider);
+  }
+
+  /* nothing to dismiss by tapping away from -- the drawer is not covering
+     anything, and an invisible full-body button would swallow chat clicks */
+  .app-body-backdrop {
+    display: none;
+  }
 }
 
 /* --- Chat app shell, mobile ---

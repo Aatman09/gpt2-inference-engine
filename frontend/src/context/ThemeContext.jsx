@@ -37,10 +37,14 @@ export function ThemeProvider({ children }) {
     localStorage.setItem("font", font);
   }, [font]);
 
-  // zoom via the CSS zoom property on <html> -- reflows layout properly,
-  // unlike transform: scale
+  // Text size, not zoom. CSS `zoom` scaled the entire interface -- padding,
+  // controls, the drawer -- so bigger text also meant bigger chrome and no
+  // more words per line. This scales only the type ramp (index.css reads
+  // --text-scale into every --text-* step), so larger text actually fills
+  // the space it is given instead of inflating the box around it.
   useEffect(() => {
-    document.documentElement.style.zoom = String(zoom / 100);
+    document.documentElement.style.removeProperty("zoom");
+    document.documentElement.style.setProperty("--text-scale", String(zoom / 100));
     localStorage.setItem("zoom", String(zoom));
   }, [zoom]);
 

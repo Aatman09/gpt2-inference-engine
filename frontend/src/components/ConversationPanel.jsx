@@ -71,22 +71,29 @@ export default function ConversationPanel() {
     .slice()
     .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
 
+  // On a phone the drawer covers the chat, so picking something has to
+  // dismiss it. From 900px up it is a persistent column beside the chat
+  // (see index.css) and closing it on every click would be hostile.
+  const closeIfOverlay = () => {
+    if (window.matchMedia("(max-width: 899px)").matches) togglePanel();
+  };
+
   const open = (id) => {
     selectConversation(id);
     navigate("/chat");
-    togglePanel();
+    closeIfOverlay();
   };
 
   const handleNewChat = async () => {
     await newChat();
     navigate("/chat");
-    togglePanel();
+    closeIfOverlay();
   };
 
   const goSettings = () => {
     navigate("/settings");
     setAccountOpen(false);
-    togglePanel();
+    closeIfOverlay();
   };
 
   const startEditing = (conv) => {
