@@ -23,17 +23,19 @@ class _StopEventCriteria(StoppingCriteria):
 class HFEngine(Engine):
     supports_cache_toggle = False
 
-    def __init__(self, model_id : str):
+    def __init__(self, model_id : str, device: str = "cpu"):
         self.model = AutoModelForCausalLM.from_pretrained(model_id)
         self.tokenizer= AutoTokenizer.from_pretrained(model_id)
         self.model.eval()
+        self.model.to(device)
+        self.device = device
 
     def stream(self , params : GenerationParams):
         message = params.history + [{"role": "user", "content": params.prompt}]
         text = self.tokenizer.apply_chat_template(message,
                                                   tokenize = False ,
                                                   add_generation_prompt = True)
-        inputs = self.tokenizer(text, return_tensors="pt")
+        inputs = self.tokenizer(text, return_tensors="pt").to(self.device)
 
         streamer = TextIteratorStreamer(self.tokenizer,
                                         skip_special_tokens = True,

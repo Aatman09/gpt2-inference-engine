@@ -37,10 +37,7 @@ class EngineRegistry:
             raise KeyError(f"Unknown model_name: {model_name!r}")
 
         engine_cls, model_id = _ENGINE_SPECS[model_name]
-        if engine_cls is GPTKVEngine:
-            engine = engine_cls(model_id, device=self.device)
-        else:
-            engine = engine_cls(model_id)
+        engine = engine_cls(model_id, device=self.device)
 
         self._loaded[model_name] = engine
         return engine
