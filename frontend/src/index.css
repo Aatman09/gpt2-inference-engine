@@ -1483,3 +1483,76 @@ h1, h2, h3 {
   }
   .landing-demo-bar-track { grid-column: 1 / -1; }
 }
+
+/* --- Chat app shell, mobile --- */
+/* Below this width the 56px rail + 240px conversation panel (296px fixed)
+   ate most of a phone's viewport before any chat content rendered. The
+   panel becomes an overlay drawer instead of an inline flex sibling --
+   still opened with the same Rail toggle button and panelCollapsed state,
+   just positioned over the chat instead of pushing it sideways. */
+@media (max-width: 640px) {
+  .conversation-panel {
+    position: absolute;
+    top: 0;
+    left: 56px; /* sits past the rail, which stays visible underneath */
+    bottom: 0;
+    z-index: 20;
+    width: min(240px, calc(100vw - 56px));
+    box-shadow: var(--shadow-md);
+  }
+
+  .app-body {
+    position: relative;
+  }
+
+  /* dims the chat behind the open drawer AND is the tap-to-close target
+     (a real button, not a ::after -- pseudo-elements can't take clicks).
+     Only rendered by App.jsx while the drawer is open, so no display:none
+     toggle is needed here. */
+  .app-body-backdrop {
+    position: absolute;
+    inset: 0 0 0 56px;
+    background: rgba(0, 0, 0, 0.35);
+    border: none;
+    padding: 0;
+    z-index: 10;
+    cursor: default;
+  }
+
+  /* the rail itself is narrow enough to keep on every screen size --
+     collapsing it too would hide navigation (new chat, settings, theme,
+     logout) entirely, worse than the panel-only fix */
+  .rail {
+    z-index: 21;
+  }
+
+  /* --- Top bar: keep only what fits, let the rest scroll instead of wrap
+     or silently overflow the viewport width --- */
+  .top-bar {
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .top-bar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .top-bar-brand {
+    flex: none;
+  }
+
+  /* secondary stat (peak memory) is the least essential number in the bar
+     -- drop it first rather than let every stat get cramped */
+  .top-bar-stat.is-secondary,
+  .top-bar-divider {
+    display: none;
+  }
+
+  .message-list,
+  .composer {
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
+  }
+}

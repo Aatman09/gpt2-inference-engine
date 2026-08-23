@@ -36,10 +36,16 @@ export function ChatProvider({ children }) {
   const [modelName, setModelName] = useState("gpt2");
   const [useCache, setUseCache] = useState(true);
   const [maxNewTokens, setMaxNewTokens] = useState(256);
-  // persisted so the collapsed/expanded choice survives reloads
-  const [panelCollapsed, setPanelCollapsed] = useState(
-    () => localStorage.getItem("panelCollapsed") === "true"
-  );
+  // persisted so the collapsed/expanded choice survives reloads -- but on a
+  // first-ever visit (nothing in localStorage yet) default to collapsed on
+  // narrow screens, since the panel is a full-width overlay drawer there
+  // (see index.css's 640px breakpoint) and opening on top of the chat by
+  // default would hide the composer behind it on load
+  const [panelCollapsed, setPanelCollapsed] = useState(() => {
+    const stored = localStorage.getItem("panelCollapsed");
+    if (stored !== null) return stored === "true";
+    return window.innerWidth <= 640;
+  });
   // { conversationId, text } while a real reply is streaming in, else null
   const [streaming, setStreaming] = useState(null);
   const [metrics, setMetrics] = useState(null);

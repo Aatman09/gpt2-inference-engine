@@ -46,14 +46,28 @@ export default function App() {
 // `wide` pages (settings) take the full body width; the chat view rides
 // alongside the conversation panel.
 function AppShell({ children, wide = false }) {
-  const { panelCollapsed } = useChat();
+  const { panelCollapsed, togglePanel } = useChat();
+  const panelOpen = !wide && !panelCollapsed;
 
   return (
     <div className="app-shell">
       <TopBar />
-      <div className="app-body">
+      {/* panel-open only matters below the mobile breakpoint (index.css
+          .app-body::after) -- the class is harmless dead weight above it */}
+      <div className={`app-body${panelOpen ? " panel-open" : ""}`}>
         <Rail />
-        {!wide && !panelCollapsed && <ConversationPanel />}
+        {panelOpen && <ConversationPanel />}
+        {/* backdrop tap-to-close, mobile only (index.css hides ::after
+            above the breakpoint, so this button is invisible/inert there) */}
+        {panelOpen && (
+          <button
+            type="button"
+            className="app-body-backdrop"
+            onClick={togglePanel}
+            aria-label="Close chat list"
+            tabIndex={-1}
+          />
+        )}
         {children}
       </div>
     </div>
