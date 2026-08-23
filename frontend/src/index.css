@@ -856,6 +856,16 @@ h1, h2, h3 {
   justify-content: space-between;
   align-items: flex-start;
   gap: var(--space-4);
+  /* lets the label/desc column shrink instead of forcing the control
+     (ModelPicker, Switch, number input) off the edge of a narrow screen --
+     without this, a flex child's default min-width: auto keeps the long
+     .setting-desc text at its full intrinsic width regardless of space */
+  flex-wrap: wrap;
+}
+
+.setting-row > div:first-child {
+  min-width: 0;
+  flex: 1 1 220px;
 }
 
 .setting-label {
@@ -1567,5 +1577,49 @@ h1, h2, h3 {
   .composer {
     padding-left: var(--space-4);
     padding-right: var(--space-4);
+  }
+
+  /* --- Settings page --- */
+  /* .settings-nav was a fixed 220px sidebar -- same class of bug as the
+     conversation panel, just never hit until someone actually opened
+     Settings on a phone. A horizontal tab strip on top uses the width
+     that exists instead of claiming a fixed column from it. */
+  .settings-layout {
+    flex-direction: column;
+  }
+
+  .settings-nav {
+    width: auto;
+    flex: none;
+    flex-direction: row;
+    overflow-x: auto;
+    border-right: none;
+    border-bottom: 2px solid var(--color-divider);
+    padding: var(--space-3) var(--space-4);
+    scrollbar-width: none;
+  }
+
+  .settings-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .settings-nav button {
+    flex: none;
+    white-space: nowrap;
+  }
+
+  .settings-content {
+    padding: var(--space-4);
+    max-width: 100%;
+  }
+
+  /* stack label/desc above the control instead of side-by-side once the
+     row has already wrapped (see .setting-row's flex-wrap above) --
+     space-between on a wrapped row still tries to push the control to the
+     far right of its own line, which looks stranded rather than paired
+     with what it controls */
+  .setting-row {
+    flex-direction: column;
+    align-items: stretch;
   }
 }
