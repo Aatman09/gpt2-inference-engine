@@ -61,7 +61,11 @@ export default function ModelPicker({ value, onChange, disabled = false }) {
   // Align the menu to the trigger edge that has room for it: a trigger near
   // the right edge of a narrow column (settings) must not spill past the
   // column's clip boundary, while a left-anchored trigger (top bar) stays
-  // left-aligned.
+  // left-aligned. On a phone, neither edge may have enough room at all
+  // (the menu's own max-width, index.css, is close to the full viewport
+  // width) -- in that case an explicit left-offset clamp keeps it fully
+  // inside the clip boundary instead of picking whichever edge overflows
+  // less, which was still overflowing on mobile.
   useEffect(() => {
     const menu = menuRef.current;
     const root = rootRef.current;
@@ -74,9 +78,22 @@ export default function ModelPicker({ value, onChange, disabled = false }) {
       : { left: 0, right: window.innerWidth };
     const spaceRight = clipRect.right - rootRect.left;
     const spaceLeft = rootRect.right - clipRect.left;
-    const alignRight = spaceRight < menuWidth && spaceLeft >= menuWidth;
-    menu.style.left = alignRight ? "auto" : "0px";
-    menu.style.right = alignRight ? "0px" : "auto";
+
+    if (spaceRight >= menuWidth) {
+      // fits left-aligned to the trigger, the default case
+      menu.style.left = "0px";
+      menu.style.right = "auto";
+    } else if (spaceLeft >= menuWidth) {
+      // doesn't fit left-aligned, but does right-aligned
+      menu.style.left = "auto";
+      menu.style.right = "0px";
+    } else {
+      // fits neither edge (menu is close to the clip boundary's full
+      // width) -- pin it to the boundary itself rather than the trigger,
+      // via a computed offset from the trigger's own left edge
+      menu.style.right = "auto";
+      menu.style.left = `${clipRect.left - rootRect.left}px`;
+    }
   }, [open]);
 
   const midConversation = (activeConversation?.messages?.length ?? 0) > 0;

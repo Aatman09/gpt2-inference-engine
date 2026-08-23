@@ -43,8 +43,11 @@ export default function App() {
   );
 }
 
-// `wide` pages (settings) take the full body width; the chat view rides
-// alongside the conversation panel.
+// `wide` pages (settings) take the full body width; the chat view opens
+// the conversation panel as a click-to-open flyout, not a permanent
+// sidebar -- redesigned away from the old always-visible-unless-collapsed
+// column, which competed with the chat for space and needed a separate
+// mobile-only override to avoid overflowing narrow screens.
 function AppShell({ children, wide = false }) {
   const { panelCollapsed, togglePanel } = useChat();
   const panelOpen = !wide && !panelCollapsed;
@@ -52,13 +55,10 @@ function AppShell({ children, wide = false }) {
   return (
     <div className="app-shell">
       <TopBar />
-      {/* panel-open only matters below the mobile breakpoint (index.css
-          .app-body::after) -- the class is harmless dead weight above it */}
-      <div className={`app-body${panelOpen ? " panel-open" : ""}`}>
+      <div className="app-body">
         <Rail />
         {panelOpen && <ConversationPanel />}
-        {/* backdrop tap-to-close, mobile only (index.css hides ::after
-            above the breakpoint, so this button is invisible/inert there) */}
+        {/* dims the chat and closes the flyout on an outside tap/click */}
         {panelOpen && (
           <button
             type="button"

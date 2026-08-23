@@ -292,16 +292,62 @@ h1, h2, h3 {
   margin-right: auto;
 }
 
-/* the engine cluster: cache toggle + live rate + delta bound into one
-   container so the control and the stat it drives read as one causal
-   unit, instead of three peer items separated by identical dividers */
+/* the engine cluster: cache toggle, live rate, delta, and peak memory used
+   to sit permanently expanded in the bar, competing with the model picker
+   and the chat for attention (flagged directly: "the engine/metrics stuff
+   competes with chatting"). Collapsed to one compact badge that expands
+   into the full panel on click -- same click-to-open, click-outside-to-
+   close pattern as ModelPicker, so the bar's two dropdown-shaped controls
+   behave identically. */
 .top-bar-engine {
+  position: relative;
+}
+
+.top-bar-engine-badge {
   display: flex;
   align-items: center;
-  gap: var(--space-4);
-  padding: 7px var(--space-4) 7px var(--space-3);
+  gap: 6px;
+  padding: 7px var(--space-3);
+  border: 2px solid transparent;
   border-radius: 999px;
   background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface));
+  color: inherit;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.top-bar-engine-badge:hover {
+  background: color-mix(in srgb, var(--color-accent) 14%, var(--color-surface));
+}
+
+.top-bar-engine-badge:focus-visible {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.top-bar-engine-badge svg {
+  color: var(--color-muted);
+}
+
+.top-bar-engine-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  min-width: 220px;
+  max-width: calc(100vw - 32px);
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  background: var(--color-surface-raised);
+  border: 2px solid var(--color-divider);
+  border-radius: 10px;
+  box-shadow: var(--shadow-md);
+}
+
+.top-bar-engine-menu .hr {
+  margin: 0;
 }
 
 .top-bar-stat {
@@ -337,25 +383,6 @@ h1, h2, h3 {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--color-muted);
-}
-
-/* peak memory is demoted outside the engine cluster: a secondary readout,
-   not part of the cache/rate causal loop -- smaller value, no accent */
-.top-bar-stat.is-secondary .top-bar-stat-value {
-  font-size: var(--text-base);
-  color: var(--color-text);
-}
-
-.top-bar-divider {
-  width: 1px;
-  height: 20px;
-  background: var(--color-divider);
-}
-
-.top-bar-engine-divider {
-  width: 1px;
-  height: 22px;
-  background: color-mix(in srgb, var(--color-accent) 25%, var(--color-divider));
 }
 
 .top-bar-control {
@@ -440,16 +467,31 @@ h1, h2, h3 {
   margin-bottom: var(--space-4);
 }
 
-/* --- Conversation panel --- */
+/* --- Conversation panel ---
+   Closed by default at every width, opened as a flyout overlay by a single
+   click on the rail's toggle -- not a pushed inline column. Redesigned
+   from the original always-visible-unless-collapsed sidebar: switching
+   conversations was clunky with a permanent 240px column competing for
+   space with chat, and it needed a separate mobile-only override to not
+   break outright. One behavior, one set of rules, every screen size. */
+
+.app-body {
+  position: relative;
+}
 
 .conversation-panel {
-  width: 240px;
-  flex: none;
+  position: absolute;
+  top: 0;
+  left: 56px; /* sits past the rail, which stays visible underneath */
+  bottom: 0;
+  z-index: 20;
+  width: min(280px, calc(100vw - 56px));
   background: var(--color-surface);
   display: flex;
   flex-direction: column;
   padding: var(--space-3) var(--space-2);
   min-height: 0;
+  box-shadow: var(--shadow-md);
 }
 
 .conversation-panel .new-chat-btn {
@@ -1062,7 +1104,14 @@ h1, h2, h3 {
   top: calc(100% + 6px);
   left: 0;
   z-index: 20;
+  /* min-width alone assumes 340px always fits *somewhere* once the JS
+     alignment logic (ModelPicker.jsx) picks a side -- true when the trigger
+     sits near either edge of a wide screen, false on a phone where the
+     viewport itself is barely wider than 340px: the menu still rendered
+     off the right edge regardless of which side it aligned to. max-width
+     is the actual fix; min-width alone can't shrink the box past its floor. */
   min-width: min(340px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
   padding: var(--space-2);
   display: flex;
   flex-direction: column;
@@ -1507,46 +1556,31 @@ h1, h2, h3 {
   .landing-demo-bar-track { grid-column: 1 / -1; }
 }
 
+/* dims the chat behind the open drawer AND is the tap-to-close target (a
+   real button, not a ::after -- pseudo-elements can't take clicks). Only
+   rendered by App.jsx while the drawer is open, so no display:none toggle
+   is needed here. Universal, not mobile-only: the panel is a flyout at
+   every width now, see .conversation-panel above. */
+.app-body-backdrop {
+  position: absolute;
+  inset: 0 0 0 56px;
+  background: rgba(0, 0, 0, 0.35);
+  border: none;
+  padding: 0;
+  z-index: 10;
+  cursor: default;
+}
+
+/* rail sits above the panel/backdrop so its own controls (new chat,
+   settings, theme, logout) stay clickable while the flyout is open */
+.rail {
+  z-index: 21;
+}
+
 /* --- Chat app shell, mobile --- */
-/* Below this width the 56px rail + 240px conversation panel (296px fixed)
-   ate most of a phone's viewport before any chat content rendered. The
-   panel becomes an overlay drawer instead of an inline flex sibling --
-   still opened with the same Rail toggle button and panelCollapsed state,
-   just positioned over the chat instead of pushing it sideways. */
 @media (max-width: 640px) {
   .conversation-panel {
-    position: absolute;
-    top: 0;
-    left: 56px; /* sits past the rail, which stays visible underneath */
-    bottom: 0;
-    z-index: 20;
-    width: min(240px, calc(100vw - 56px));
-    box-shadow: var(--shadow-md);
-  }
-
-  .app-body {
-    position: relative;
-  }
-
-  /* dims the chat behind the open drawer AND is the tap-to-close target
-     (a real button, not a ::after -- pseudo-elements can't take clicks).
-     Only rendered by App.jsx while the drawer is open, so no display:none
-     toggle is needed here. */
-  .app-body-backdrop {
-    position: absolute;
-    inset: 0 0 0 56px;
-    background: rgba(0, 0, 0, 0.35);
-    border: none;
-    padding: 0;
-    z-index: 10;
-    cursor: default;
-  }
-
-  /* the rail itself is narrow enough to keep on every screen size --
-     collapsing it too would hide navigation (new chat, settings, theme,
-     logout) entirely, worse than the panel-only fix */
-  .rail {
-    z-index: 21;
+    width: min(280px, calc(100vw - 56px));
   }
 
   /* --- Top bar: keep only what fits, let the rest scroll instead of wrap
@@ -1564,13 +1598,6 @@ h1, h2, h3 {
 
   .top-bar-brand {
     flex: none;
-  }
-
-  /* secondary stat (peak memory) is the least essential number in the bar
-     -- drop it first rather than let every stat get cramped */
-  .top-bar-stat.is-secondary,
-  .top-bar-divider {
-    display: none;
   }
 
   .message-list,
