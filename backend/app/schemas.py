@@ -15,7 +15,7 @@ class HealthResponse(BaseModel):
 # this enum is the only validation those keys get before a dict lookup
 class ModelName(str, Enum):
     GPT2 = "gpt2"
-    QWEN_2_5 = "qwen2.5-0.5b-instruct"
+    QWEN_3_5 = "qwen3.5-0.8b"
     SMOLLM2 = "smollm2-360m-instruct"
 
 class PredictRequests(BaseModel):

@@ -21,5 +21,5 @@ Source: https://github.com/Aatman09/gpt2-inference-engine
   engine and the metrics, not raw throughput.
 - The Space sleeps after 48h idle; the first request after a sleep pays a 30–90s
   cold start while the container and model weights load.
-- GPT-2 loads at startup. Qwen2.5-0.5B-Instruct and SmolLM2-360M-Instruct download
+- GPT-2 loads at startup. Qwen3.5-0.8B and Granite-4.0-1B download
   on first use, so the first message to either is slower than subsequent ones.

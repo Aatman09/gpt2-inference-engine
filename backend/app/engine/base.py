@@ -5,12 +5,14 @@ as an Engine that streams response text one chunk at a time, given the same
 GenerationParams shape. The server layer measures latency by timing the gaps
 between yields, so engines stay concerned only with generation, not instrumentation.
 
-All three models (GPT-2, Qwen2.5-0.5B-Instruct, SmolLM2-360M-Instruct) are treated
-as chat models: stream() takes a prompt plus prior turns (`history`). GPT-2 is
-pretrained/base today, not finetuned, so its "chat" turns are just concatenated
-text it continues from rather than instruction-following in the true sense --
-but the interface is intentionally identical so an instruction-tuned GPT-2
-checkpoint can be swapped in later with no interface change.
+All three models (GPT-2, Qwen3.5-0.8B, SmolLM2-360M-Instruct) are treated as chat
+models: stream() takes a prompt plus prior turns (`history`). "GPT-2" here is
+gpt2-medium plus a LoRA adapter trained in training/finetune_lora.py -- its
+"chat" turns are rendered the same flat way base GPT-2's would be
+(GPTKVEngine._render_prompt has no chat template to call), but the adapter
+now genuinely follows instructions rather than just continuing text; the
+interface stayed identical throughout, which is exactly what let that
+swap happen without touching app.py or the frontend.
 
 History lives in Postgres (see docs/ROADMAP.md Phase 1/2), not in the engine.
 The route handler loads a conversation's `messages` before calling stream() and

@@ -9,8 +9,8 @@ export const MODEL_OPTIONS = [
     engine: "My KV-cache engine, trained from scratch",
   },
   {
-    value: "qwen2.5-0.5b-instruct",
-    label: "Qwen2.5-0.5B-Instruct",
+    value: "qwen3.5-0.8b",
+    label: "Qwen3.5-0.8B",
     engine: "Instruction-tuned, served via HuggingFace transformers",
   },
   {

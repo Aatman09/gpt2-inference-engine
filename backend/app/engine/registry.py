@@ -1,22 +1,45 @@
 """model_name -> Engine lookup, replacing app.py's bare my_models dict.
 
-GPT-2 is eager-loaded at startup (cheap, always the default). Qwen and SmolLM2
-are lazy-loaded on first request and cached after that -- on the free HF Spaces
-CPU tier there's no reason to pay the load cost for a model nobody asked for.
+GPT-2 is eager-loaded at startup (cheap, always the default). The HF-backed
+models are lazy-loaded on first request and cached after that -- on a
+CPU-only, 4GB-RAM deploy box there's no reason to pay the load cost (or the
+memory) for a model nobody has asked for yet in this process's lifetime.
 """
 from .base import Engine
 from .gpt_kv import GPTKVEngine
 from .hfengine import HFEngine
 
 # model_name (as sent by the client / ModelName enum) -> (engine class,
-# constructor arg, adapter name under repo-root adapters/, or None for base).
-# "gpt2" now means gpt2-medium plus the LoRA adapter trained in
-# training/finetune_lora.py -- the API-facing name is unchanged so the
-# frontend and persisted conversation history don't need to know it moved.
-_ENGINE_SPECS: dict[str, tuple[type[Engine], str, str | None]] = {
-    "gpt2": (GPTKVEngine, "gpt2-medium", "gpt2-medium-instruct"),
-    "qwen2.5-0.5b-instruct": (HFEngine, "Qwen/Qwen2.5-0.5B-Instruct", None),
-    "smollm2-360m-instruct": (HFEngine, "HuggingFaceTB/SmolLM2-360M-Instruct", None),
+# constructor arg, extra kwargs for that engine class). The extras dict keeps
+# this from growing another positional field every time a new engine needs a
+# different knob -- adapter_name only means something to GPTKVEngine,
+# model_class/dtype only to HFEngine, and an entry that needs neither just
+# passes {}.
+#
+# "gpt2" means gpt2-medium plus the LoRA adapter trained in
+# training/finetune_lora.py, not base gpt2 -- the API-facing name is
+# unchanged so the frontend and persisted conversation history don't need to
+# know it moved.
+#
+# Qwen3.5-0.8B loads at dtype=bfloat16 (~1.7GB, its checkpoint's native
+# dtype) rather than HFEngine's fp32 default, and needs
+# model_class="image_text_to_text": its real transformers class,
+# Qwen3_5ForConditionalGeneration, isn't in AutoModelForCausalLM's mapping at
+# all (confirmed directly) -- it's architecturally a vision-language model,
+# used here text-only, which its own chat template and generate() already
+# support with no image input required (verified end-to-end).
+#
+# Granite-4.0-1b was tried here and reverted: correct output, but at
+# ~1.63B params it's ~3.26GB even at bf16, and gpt2-medium alone already
+# measured ~3.3GB peak on this deploy's 4GB box -- the two can't be
+# resident together, and loading Granite OOM-killed the whole container
+# (gpt2 included, not just that request) rather than failing gracefully.
+# Revisit if the box is resized.
+_ENGINE_SPECS: dict[str, tuple[type[Engine], str, dict]] = {
+    "gpt2": (GPTKVEngine, "gpt2-medium", {"adapter_name": "gpt2-medium-instruct"}),
+    "qwen3.5-0.8b": (HFEngine, "Qwen/Qwen3.5-0.8B",
+                      {"model_class": "image_text_to_text", "dtype": "bfloat16"}),
+    "smollm2-360m-instruct": (HFEngine, "HuggingFaceTB/SmolLM2-360M-Instruct", {}),
 }
 
 EAGER_LOAD = ("gpt2",)
@@ -40,14 +63,8 @@ class EngineRegistry:
         if model_name not in _ENGINE_SPECS:
             raise KeyError(f"Unknown model_name: {model_name!r}")
 
-        engine_cls, model_id, adapter_name = _ENGINE_SPECS[model_name]
-        # adapter_name only means something to GPTKVEngine -- HFEngine takes
-        # no such argument, so it's passed conditionally rather than adding a
-        # parameter every engine has to ignore
-        kwargs = {"device": self.device}
-        if adapter_name is not None:
-            kwargs["adapter_name"] = adapter_name
-        engine = engine_cls(model_id, **kwargs)
+        engine_cls, model_id, extra_kwargs = _ENGINE_SPECS[model_name]
+        engine = engine_cls(model_id, device=self.device, **extra_kwargs)
 
         self._loaded[model_name] = engine
         return engine
