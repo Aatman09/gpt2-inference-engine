@@ -2,12 +2,19 @@ import { Link } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
 import { ArrowRightIcon, SunIcon, MoonIcon } from "../components/icons";
 
-// Static sample of a real metrics readout -- the same shape /generate streams
-// back, used here to show what the demo actually measures.
+// Real numbers, not made up for the page: measured directly against the
+// deployed engine (gpt2-medium + its LoRA adapter), CPU, 2 threads to match
+// the deploy box's vCPU count. TTFT is close either way on purpose -- the
+// cache speeds up each token AFTER the first, not the first one, since
+// prefill does the same work regardless of the toggle.
 const CACHE_COMPARISON = [
-  { label: "KV cache on", tokensPerSec: 47, ttft: 312, tone: "accent" },
-  { label: "KV cache off", tokensPerSec: 11, ttft: 340, tone: "muted" },
+  { label: "KV cache on", tokensPerSec: 17, ttft: 222, tone: "accent" },
+  { label: "KV cache off", tokensPerSec: 4.5, ttft: 147, tone: "muted" },
 ];
+// bar widths are relative to whichever row is fastest -- computed, not
+// hardcoded, so updating the numbers above can't silently break the bars
+// the way a stale hardcoded divisor did here before
+const MAX_TOKENS_PER_SEC = Math.max(...CACHE_COMPARISON.map((r) => r.tokensPerSec));
 
 export default function LandingPage() {
   const { theme, toggleTheme } = useTheme();
@@ -33,15 +40,16 @@ export default function LandingPage() {
 
       <main className="landing-main">
         <section className="landing-hero">
-          <p className="landing-eyebrow">GPT-2 · from scratch · with a hand-written KV cache</p>
+          <p className="landing-eyebrow">GPT-2 · from scratch · hand-written KV cache · self-finetuned with LoRA</p>
           <h1>
             A chat app where you can watch the inference engine work.
           </h1>
           <p className="landing-lede">
             cachegpt serves GPT-2 through a transformer and KV-cache implementation written
-            from scratch in PyTorch — no <code>transformers</code> generate loop. Every reply
-            reports its own tokens/sec, time-to-first-token, and peak memory, and you can
-            switch the cache off mid-conversation to watch those numbers fall apart.
+            from scratch in PyTorch — no <code>transformers</code> generate loop — then
+            instruction-tuned with a self-implemented LoRA adapter. Every reply reports its
+            own tokens/sec, time-to-first-token, and peak memory, and you can switch the
+            cache off mid-conversation to watch those numbers fall apart.
           </p>
           <div className="landing-cta">
             <Link to="/signup" className="btn btn-primary">
@@ -76,7 +84,7 @@ export default function LandingPage() {
                 <span className="landing-demo-bar-track">
                   <span
                     className={`landing-demo-bar${row.tone === "accent" ? " is-accent" : ""}`}
-                    style={{ width: `${(row.tokensPerSec / 47) * 100}%` }}
+                    style={{ width: `${(row.tokensPerSec / MAX_TOKENS_PER_SEC) * 100}%` }}
                   />
                 </span>
                 <span className="landing-demo-ttft">TTFT {row.ttft}ms</span>
@@ -112,18 +120,22 @@ export default function LandingPage() {
           <article>
             <h2>Three models, one interface</h2>
             <p>
-              GPT-2 runs on the hand-written engine. Qwen2.5-0.5B and SmolLM2-360M run
+              GPT-2 runs on the hand-written engine. Qwen3.5-0.8B and SmolLM2-360M run
               through HuggingFace <code>transformers</code>. All three sit behind one
               <code>Engine</code> interface, so swapping between them changes nothing about
               how the app streams or persists a conversation.
             </p>
           </article>
           <article>
-            <h2>Base model, honestly</h2>
+            <h2>Finetuned by hand, not just downloaded</h2>
             <p>
-              GPT-2 was never instruction-tuned. It continues text rather than answering
-              questions, and it will happily ramble. That contrast against the two
-              instruction-tuned models is the most useful thing the model switcher shows.
+              GPT-2's instruction-following didn't come from a bigger checkpoint — it's a
+              self-implemented LoRA adapter (~1.2M trained parameters against 406M frozen),
+              trained on 10k instruction/response pairs and injected straight into the
+              engine above. It turns a model that never used to stop talking into one that
+              answers and knows when to. It still won't know many facts a larger model
+              would — that's the honest limit of a 400M-parameter model, not a bug in the
+              adapter.
             </p>
           </article>
         </section>
