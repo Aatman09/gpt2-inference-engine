@@ -76,7 +76,7 @@ export default function ChatPage() {
         <div className="message-list" ref={scrollRef}>
           {messages.length === 0 && streamingText === null && (
             <div className="chat-placeholder">
-              <h2>achat</h2>
+              <h2>cachegpt</h2>
               <p>Your own GPT-2, served by a hand-written KV-cache engine. Start typing below.</p>
             </div>
           )}
@@ -97,9 +97,9 @@ export default function ChatPage() {
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Message achat…"
+            placeholder="Message cachegpt…"
             rows={1}
-            aria-label="Message achat"
+            aria-label="Message cachegpt"
             aria-keyshortcuts="Enter"
           />
           {streamingText !== null ? (

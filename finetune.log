@@ -1,0 +1,83 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+10400 examples | device cuda
+Loading weights:   0%|          | 0/148 [00:00<?, ?it/s]Loading weights: 100%|██████████| 148/148 [00:00<00:00, 9728.36it/s]
+trainable 442,368 of 163,551,744
+epoch 0 | step 0/2600 | loss 2.0951
+epoch 0 | step 100/2600 | loss 3.1800
+epoch 0 | step 200/2600 | loss 2.8273
+epoch 0 | step 300/2600 | loss 2.6581
+epoch 0 | step 400/2600 | loss 2.5887
+epoch 0 | step 500/2600 | loss 2.7540
+epoch 0 | step 600/2600 | loss 2.9737
+epoch 0 | step 700/2600 | loss 2.0249
+epoch 0 | step 800/2600 | loss 2.7242
+epoch 0 | step 900/2600 | loss 3.4395
+epoch 0 | step 1000/2600 | loss 2.5437
+epoch 0 | step 1100/2600 | loss 2.6579
+epoch 0 | step 1200/2600 | loss 3.2848
+epoch 0 | step 1300/2600 | loss 3.3963
+epoch 0 | step 1400/2600 | loss 3.2494
+epoch 0 | step 1500/2600 | loss 3.3515
+epoch 0 | step 1600/2600 | loss 2.5421
+epoch 0 | step 1700/2600 | loss 1.6695
+epoch 0 | step 1800/2600 | loss 2.8777
+epoch 0 | step 1900/2600 | loss 2.1723
+epoch 0 | step 2000/2600 | loss 2.9251
+epoch 0 | step 2100/2600 | loss 2.5756
+epoch 0 | step 2200/2600 | loss 2.3758
+epoch 0 | step 2300/2600 | loss 3.3611
+epoch 0 | step 2400/2600 | loss 2.6556
+epoch 0 | step 2500/2600 | loss 3.1388
+epoch 1 | step 0/2600 | loss 2.5960
+epoch 1 | step 100/2600 | loss 2.5132
+epoch 1 | step 200/2600 | loss 2.6703
+epoch 1 | step 300/2600 | loss 2.9355
+epoch 1 | step 400/2600 | loss 3.0942
+epoch 1 | step 500/2600 | loss 1.7712
+epoch 1 | step 600/2600 | loss 2.4138
+epoch 1 | step 700/2600 | loss 2.5775
+epoch 1 | step 800/2600 | loss 2.4929
+epoch 1 | step 900/2600 | loss 2.7021
+epoch 1 | step 1000/2600 | loss 2.5687
+epoch 1 | step 1100/2600 | loss 2.4796
+epoch 1 | step 1200/2600 | loss 2.3581
+epoch 1 | step 1300/2600 | loss 2.5193
+epoch 1 | step 1400/2600 | loss 2.9089
+epoch 1 | step 1500/2600 | loss 3.0154
+epoch 1 | step 1600/2600 | loss 2.7158
+epoch 1 | step 1700/2600 | loss 3.1828
+epoch 1 | step 1800/2600 | loss 3.0224
+epoch 1 | step 1900/2600 | loss 2.9817
+epoch 1 | step 2000/2600 | loss 3.1209
+epoch 1 | step 2100/2600 | loss 2.9419
+epoch 1 | step 2200/2600 | loss 3.1362
+epoch 1 | step 2300/2600 | loss 3.2068
+epoch 1 | step 2400/2600 | loss 3.2343
+epoch 1 | step 2500/2600 | loss 1.7623
+epoch 2 | step 0/2600 | loss 2.5470
+epoch 2 | step 100/2600 | loss 2.3176
+epoch 2 | step 200/2600 | loss 3.1971
+epoch 2 | step 300/2600 | loss 2.7006
+epoch 2 | step 400/2600 | loss 2.8165
+epoch 2 | step 500/2600 | loss 2.9906
+epoch 2 | step 600/2600 | loss 2.7795
+epoch 2 | step 700/2600 | loss 2.3724
+epoch 2 | step 800/2600 | loss 2.3365
+epoch 2 | step 900/2600 | loss 2.9292
+epoch 2 | step 1000/2600 | loss 2.1745
+epoch 2 | step 1100/2600 | loss 2.9184
+epoch 2 | step 1200/2600 | loss 2.3343
+epoch 2 | step 1300/2600 | loss 2.3812
+epoch 2 | step 1400/2600 | loss 3.0087
+epoch 2 | step 1500/2600 | loss 3.3377
+epoch 2 | step 1600/2600 | loss 2.1744
+epoch 2 | step 1700/2600 | loss 3.2167
+epoch 2 | step 1800/2600 | loss 2.7068
+epoch 2 | step 1900/2600 | loss 2.8415
+epoch 2 | step 2000/2600 | loss 2.6595
+epoch 2 | step 2100/2600 | loss 3.3130
+epoch 2 | step 2200/2600 | loss 2.9170
+epoch 2 | step 2300/2600 | loss 2.7695
+epoch 2 | step 2400/2600 | loss 1.7147
+epoch 2 | step 2500/2600 | loss 2.7619
+adapter saved to adapters/instruct

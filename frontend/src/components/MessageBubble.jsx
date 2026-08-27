@@ -44,7 +44,7 @@ export default function MessageBubble({ role, content, streaming, metrics }) {
   const items = !isUser && metrics ? metricItems(metrics) : [];
   return (
     <div className={`message-row ${isUser ? "user" : "assistant"}`}>
-      <div className="message-role">{isUser ? "You" : "achat"}</div>
+      <div className="message-role">{isUser ? "You" : "cachegpt"}</div>
       <div className="message-body">
         {isUser ? content : <ReactMarkdown>{content}</ReactMarkdown>}
         {streaming && <span className="cursor" />}

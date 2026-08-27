@@ -1,4 +1,4 @@
-# achat
+# cachegpt
 
 A full-stack chat app serving GPT-2 through a hand-written KV-cache inference
 engine — trained from scratch, then wrapped in real product infrastructure:

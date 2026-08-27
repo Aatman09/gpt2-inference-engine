@@ -15,7 +15,7 @@ export default function LandingPage() {
   return (
     <div className="landing">
       <header className="landing-nav">
-        <span className="landing-brand">achat</span>
+        <span className="landing-brand">cachegpt</span>
         <div className="landing-nav-actions">
           <button
             type="button"
@@ -38,7 +38,7 @@ export default function LandingPage() {
             A chat app where you can watch the inference engine work.
           </h1>
           <p className="landing-lede">
-            achat serves GPT-2 through a transformer and KV-cache implementation written
+            cachegpt serves GPT-2 through a transformer and KV-cache implementation written
             from scratch in PyTorch — no <code>transformers</code> generate loop. Every reply
             reports its own tokens/sec, time-to-first-token, and peak memory, and you can
             switch the cache off mid-conversation to watch those numbers fall apart.

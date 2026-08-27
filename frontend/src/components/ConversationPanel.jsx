@@ -129,7 +129,7 @@ export default function ConversationPanel() {
     <aside className="conversation-panel">
       <div className="drawer-head">
         <Link className="drawer-brand" to="/chat" onClick={() => closeIfOverlay()}>
-          achat
+          cachegpt
         </Link>
         <button
           type="button"

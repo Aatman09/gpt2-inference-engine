@@ -1,10 +1,16 @@
-# achat — what was actually built
+# cachegpt — what was actually built
 
 One document, whole project, written so every claim in it is something you
 can open the file and defend line-by-line in an interview. Nothing here is
 aspirational — the "not built" section at the end is as important as the
 rest. Repo: `github.com/Aatman09/gpt2-inference-engine`. Live:
 `https://cachegpt.duckdns.org`.
+
+**Naming:** the product is "cachegpt" — that's what the deployed app, the
+domain, and every user-facing string say. "achat" is the internal dev name
+still used for the local directory, code comments, and working docs; it
+predates the cachegpt branding and was never renamed at the code level on
+purpose, so it doesn't show up anywhere a user or recruiter actually looks.
 
 ---
 

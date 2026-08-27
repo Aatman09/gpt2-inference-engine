@@ -70,7 +70,7 @@ export default function TopBar() {
         className="top-bar-brand"
         aria-label="Go to chat"
       >
-        achat
+        cachegpt
       </NavLink>
 
       <ModelPicker value={modelName} onChange={setModelName} disabled={streaming !== null} />

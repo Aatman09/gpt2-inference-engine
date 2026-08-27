@@ -65,7 +65,7 @@ export default function SettingsPage() {
         <div className="settings-content">
           <div>
             <h2>Performance</h2>
-            <p className="settings-intro">Controls for how achat manages speed and memory.</p>
+            <p className="settings-intro">Controls for how cachegpt manages speed and memory.</p>
           </div>
 
           <hr className="hr" />
@@ -119,7 +119,7 @@ export default function SettingsPage() {
         <div className="settings-content">
           <div>
             <h2>Appearance</h2>
-            <p className="settings-intro">How achat looks.</p>
+            <p className="settings-intro">How cachegpt looks.</p>
           </div>
 
           <hr className="hr" />

@@ -61,7 +61,7 @@ export default function AuthScreen({ mode = "login" }) {
 
   return (
     <div className="auth-screen">
-      <Link to="/" className="auth-back">achat</Link>
+      <Link to="/" className="auth-back">cachegpt</Link>
 
       <button
         type="button"

@@ -15,9 +15,9 @@ export default function App() {
   // rather than flashing the landing page before the check resolves
   if (loading) {
     return (
-      <main className="app-loading" aria-busy="true" aria-label="Loading achat">
+      <main className="app-loading" aria-busy="true" aria-label="Loading cachegpt">
         <div className="app-loading-mark" aria-hidden="true" />
-        <strong>achat</strong>
+        <strong>cachegpt</strong>
         <span>Preparing your workspace…</span>
       </main>
     );
