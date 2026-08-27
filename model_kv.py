@@ -140,8 +140,22 @@ class GPT(nn.Module):
 
         loss = None
         if targets is not None:
-            B, T, C = logits.shape
-            loss = F.cross_entropy(logits.view(B * T, C), targets.view(B * T))
+            # Only the real vocabulary is a valid prediction. vocab_size is
+            # padded past real_vocab_size for matmul alignment, and those extra
+            # lm_head rows are never copied from the checkpoint -- they stay at
+            # random init and, untrained, out-argmax the real tokens at ~92% of
+            # positions. Including them puts the loss at ~77 where it should be
+            # ~2.5. generate() and the serving engine already mask them in
+            # logit space for exactly this reason; the loss has to agree.
+            #
+            # Pretraining got away with it because lm_head was trainable and
+            # those rows were quickly driven down. Under LoRA the base is
+            # frozen, so they never can be, and the loss would be dominated by
+            # noise the adapter has no way to fix.
+            logits_real = logits[..., : self.config.real_vocab_size]
+            loss = F.cross_entropy(
+                logits_real.reshape(-1, self.config.real_vocab_size), targets.reshape(-1)
+            )
 
         return logits, new_kv_caches, loss
 

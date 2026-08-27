@@ -888,6 +888,10 @@ h1, h2, h3 {
   line-height: 1.6;
 }
 
+.chat-error .btn {
+  margin-top: var(--space-4);
+}
+
 /* user messages hug the right, assistant replies the left */
 .message-row {
   display: flex;
@@ -992,11 +996,21 @@ h1, h2, h3 {
 
 .message-metrics {
   display: flex;
+  /* four values now (rate, TTFT, peak memory, cache) -- they have to wrap
+     rather than push the row into horizontal overflow on narrow screens */
+  flex-wrap: wrap;
   gap: var(--space-2);
   font-size: var(--text-sm);
   color: var(--color-muted);
   margin-top: 6px;
   font-variant-numeric: tabular-nums;
+}
+
+/* the separator travels with its value so a wrapped line never starts with
+   an orphaned dot */
+.message-metric {
+  display: inline-flex;
+  gap: var(--space-2);
 }
 
 .cursor {
@@ -1082,6 +1096,15 @@ h1, h2, h3 {
   margin: var(--space-2) var(--space-3) 0;
   font-size: var(--text-xs);
   color: var(--color-muted);
+}
+
+/* the hint names two keyboard shortcuts, so it is noise on a touch device
+   -- hidden by pointer capability rather than width, since a narrow window
+   on a laptop still has a keyboard and a large tablet still does not */
+@media (pointer: coarse) {
+  .composer-hint {
+    display: none;
+  }
 }
 
 /* --- Settings --- */

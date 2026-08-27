@@ -8,11 +8,15 @@ from .base import Engine
 from .gpt_kv import GPTKVEngine
 from .hfengine import HFEngine
 
-# model_name (as sent by the client / ModelName enum) -> (engine class, constructor arg)
-_ENGINE_SPECS: dict[str, tuple[type[Engine], str]] = {
-    "gpt2": (GPTKVEngine, "gpt2"),
-    "qwen2.5-0.5b-instruct": (HFEngine, "Qwen/Qwen2.5-0.5B-Instruct"),
-    "smollm2-360m-instruct": (HFEngine, "HuggingFaceTB/SmolLM2-360M-Instruct"),
+# model_name (as sent by the client / ModelName enum) -> (engine class,
+# constructor arg, adapter name under repo-root adapters/, or None for base).
+# "gpt2" now means gpt2-medium plus the LoRA adapter trained in
+# training/finetune_lora.py -- the API-facing name is unchanged so the
+# frontend and persisted conversation history don't need to know it moved.
+_ENGINE_SPECS: dict[str, tuple[type[Engine], str, str | None]] = {
+    "gpt2": (GPTKVEngine, "gpt2-medium", "gpt2-medium-instruct"),
+    "qwen2.5-0.5b-instruct": (HFEngine, "Qwen/Qwen2.5-0.5B-Instruct", None),
+    "smollm2-360m-instruct": (HFEngine, "HuggingFaceTB/SmolLM2-360M-Instruct", None),
 }
 
 EAGER_LOAD = ("gpt2",)
@@ -36,8 +40,14 @@ class EngineRegistry:
         if model_name not in _ENGINE_SPECS:
             raise KeyError(f"Unknown model_name: {model_name!r}")
 
-        engine_cls, model_id = _ENGINE_SPECS[model_name]
-        engine = engine_cls(model_id, device=self.device)
+        engine_cls, model_id, adapter_name = _ENGINE_SPECS[model_name]
+        # adapter_name only means something to GPTKVEngine -- HFEngine takes
+        # no such argument, so it's passed conditionally rather than adding a
+        # parameter every engine has to ignore
+        kwargs = {"device": self.device}
+        if adapter_name is not None:
+            kwargs["adapter_name"] = adapter_name
+        engine = engine_cls(model_id, **kwargs)
 
         self._loaded[model_name] = engine
         return engine

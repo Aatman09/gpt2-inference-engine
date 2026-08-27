@@ -4,7 +4,8 @@ import { ArrowRightIcon, StopIcon } from "../components/icons";
 import { useChat } from "../context/ChatContext";
 
 export default function ChatPage() {
-  const { activeConversation, streaming, sendMessage, stop, activeId } = useChat();
+  const { activeConversation, streaming, sendMessage, stop, activeId, hydrationError, retryHydration } =
+    useChat();
   const [draft, setDraft] = useState("");
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
@@ -27,27 +28,17 @@ export default function ChatPage() {
     input.style.height = `${Math.min(input.scrollHeight, 200)}px`;
   }, [draft]);
 
-  if (!activeConversation) {
-    return (
-      <div className="chat-window empty-state">
-        <p>Select a conversation, or start a new one.</p>
-      </div>
-    );
-  }
-
-  // messages is null while a list summary is being hydrated with its full
-  // history (see ChatContext's selectConversation)
-  if (activeConversation.messages === null) {
-    return (
-      <div className="chat-window" aria-busy="true" aria-label="Loading conversation">
-        <div className="message-list chat-skeleton" aria-hidden="true">
-          <span className="skeleton-line short" />
-          <span className="skeleton-line" />
-          <span className="skeleton-line medium" />
-        </div>
-      </div>
-    );
-  }
+  // Neither "nothing selected" nor "still loading" gets an early return any
+  // more: both used to render a screen with no composer, so on mobile --
+  // where the drawer is closed by default -- the app looked broken, with no
+  // way to type and no visible way out. The composer is always available;
+  // sending with nothing selected creates a conversation (ChatContext's
+  // sendMessage handles the null case).
+  // messages stays null both while history is loading and after that load
+  // failed -- hydrationError is what separates them, so a failure shows a
+  // retry instead of a skeleton that never resolves.
+  const loading = activeConversation?.messages === null && !hydrationError;
+  const messages = activeConversation?.messages ?? [];
 
   const handleSend = () => {
     const text = draft.trim();
@@ -65,20 +56,38 @@ export default function ChatPage() {
 
   return (
     <div className="chat-window">
-      <div className="message-list" ref={scrollRef}>
-        {activeConversation.messages.length === 0 && streamingText === null && (
-          <div className="chat-placeholder">
-            <h2>achat</h2>
-            <p>Your own GPT-2, served by a hand-written KV-cache engine. Start typing below.</p>
+      {hydrationError ? (
+        <div className="message-list">
+          <div className="chat-placeholder chat-error" role="alert">
+            <h2>Couldn't load this conversation</h2>
+            <p>{hydrationError}</p>
+            <button type="button" className="btn btn-ghost" onClick={retryHydration}>
+              Try again
+            </button>
           </div>
-        )}
-        {activeConversation.messages.map((m) => (
-          <MessageBubble key={m.id} role={m.role} content={m.content} metrics={m.metrics} />
-        ))}
-        {streamingText !== null && (
-          <MessageBubble role="assistant" content={streamingText} streaming />
-        )}
-      </div>
+        </div>
+      ) : loading ? (
+        <div className="message-list chat-skeleton" aria-busy="true" aria-hidden="true">
+          <span className="skeleton-line short" />
+          <span className="skeleton-line" />
+          <span className="skeleton-line medium" />
+        </div>
+      ) : (
+        <div className="message-list" ref={scrollRef}>
+          {messages.length === 0 && streamingText === null && (
+            <div className="chat-placeholder">
+              <h2>achat</h2>
+              <p>Your own GPT-2, served by a hand-written KV-cache engine. Start typing below.</p>
+            </div>
+          )}
+          {messages.map((m) => (
+            <MessageBubble key={m.id} role={m.role} content={m.content} metrics={m.metrics} />
+          ))}
+          {streamingText !== null && (
+            <MessageBubble role="assistant" content={streamingText} streaming />
+          )}
+        </div>
+      )}
 
       <div className="composer">
         <div className="composer-shell">

@@ -252,11 +252,14 @@ def _sse_event(data: dict) -> str:
 
 
 def _generate_events(engine, params: GenerationParams):
-    """Streams SSE frames and returns the full assistant reply via StopIteration.value
+    """Streams SSE frames and returns (response_text, metrics) via StopIteration.value
     (yield-from-generator's way of returning a value) -- app.py needs the complete
-    text afterward to persist it, but the generator protocol only has yields, so a
-    plain `return response_text` here is what a `yield from` caller downstream can
-    retrieve as `.value`."""
+    text and its measurements afterward to persist them, but the generator protocol
+    only has yields, so a plain `return` here is what a `yield from` caller
+    downstream can retrieve as `.value`.
+
+    metrics is None when generation failed part-way: a partial reply gets no
+    numbers rather than fabricated ones."""
     start = time.perf_counter()
     first_token_time = None
     token_count = 0
@@ -289,7 +292,7 @@ def _generate_events(engine, params: GenerationParams):
         # can't become an HTTP error status -- surface it as a frame instead so
         # the client doesn't just see the stream go silent mid-response
         yield _sse_event({"type": "error", "message": str(e)})
-        return response_text
+        return response_text, None
 
     if device == "cuda":
         peak_memory_mb = torch.cuda.max_memory_allocated() / (1024 ** 2)
@@ -298,20 +301,30 @@ def _generate_events(engine, params: GenerationParams):
         # ru_maxrss is KB on Linux, bytes on macOS -- Spaces runs Linux
         peak_memory_mb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
 
-    total_time = time.perf_counter() - start
-    yield _sse_event({
-        "type": "done",
+    end = time.perf_counter()
+    # the token frames carry rate/TTFT and the done frame used to carry only
+    # memory/totals, so a client that replaced one with the other lost half the
+    # numbers. The done frame now repeats every measurement: one metrics object
+    # is what gets streamed, persisted, and rendered.
+    elapsed_since_first_token = (end - first_token_time) if first_token_time else 0.0
+    metrics = {
+        "ttft_ms": (first_token_time - start) * 1000 if first_token_time else None,
+        "tokens_per_sec": (
+            (token_count - 1) / elapsed_since_first_token if elapsed_since_first_token > 0 else 0.0
+        ),
         "total_tokens": token_count,
-        "total_time_s": total_time,
+        "total_time_s": end - start,
         "peak_memory_mb": peak_memory_mb,
         "cache_used": params.use_cache and engine.supports_cache_toggle,
-    })
-    return response_text
+    }
+    yield _sse_event({"type": "done", **metrics})
+    return response_text, metrics
 
 
 async def _tracked_generate_events(engine, params: GenerationParams, db: AsyncSession, conversation: Conversation):
     _active_generations[params.session_id] = params.stop_event
     response_text = ""
+    metrics = None
     try:
         # _generate_events is sync and CPU-bound: every next() runs a full model
         # forward pass. Calling it directly from this async generator would block
@@ -330,7 +343,7 @@ async def _tracked_generate_events(engine, params: GenerationParams, db: AsyncSe
                     try:
                         chunk = next(gen)
                     except StopIteration as stop:
-                        loop.call_soon_threadsafe(queue.put_nowait, (_DONE, stop.value or ""))
+                        loop.call_soon_threadsafe(queue.put_nowait, (_DONE, stop.value or ("", None)))
                         return
                     loop.call_soon_threadsafe(queue.put_nowait, (chunk, None))
             except BaseException as e:  # noqa: BLE001 - relayed to the consumer below
@@ -343,7 +356,7 @@ async def _tracked_generate_events(engine, params: GenerationParams, db: AsyncSe
                 if chunk is _DONE:
                     if isinstance(payload, BaseException):
                         raise payload
-                    response_text = payload
+                    response_text, metrics = payload
                     break
                 yield chunk
         finally:
@@ -355,10 +368,16 @@ async def _tracked_generate_events(engine, params: GenerationParams, db: AsyncSe
     # persist only if something was actually generated -- an immediate stop
     # (stop_event set before the first token) leaves nothing worth saving
     if response_text:
+        # metrics ride along in the JSONB message so a reload shows the same
+        # numbers the reply showed live -- without this the engine receipt
+        # only ever existed in the browser's memory for one session
+        assistant_message = {"role": "assistant", "content": response_text}
+        if metrics is not None:
+            assistant_message["metrics"] = metrics
         conversation.messages = [
             *conversation.messages,
             {"role": "user", "content": params.prompt},
-            {"role": "assistant", "content": response_text},
+            assistant_message,
         ]
         await db.commit()
 
@@ -388,7 +407,10 @@ async def generate(
     params = GenerationParams(
         prompt=request.predict,
         session_id=request.session_id,
-        history=conversation.messages,
+        # assistant rows also carry a persisted "metrics" key now; engines are
+        # contracted on [{"role", "content"}] only (chat templates in
+        # particular get handed these dicts verbatim), so strip it here
+        history=[{"role": m["role"], "content": m["content"]} for m in conversation.messages],
         max_new_tokens=request.max_new_tokens,
         temperature=request.temprature,
         top_k=request.top_k,

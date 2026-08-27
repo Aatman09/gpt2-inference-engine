@@ -9,9 +9,13 @@ use_cache=False takes the naive path: re-run forward() on the whole sequence
 so far at every step, passing no cache, so the ON/OFF toggle produces a real
 speed difference rather than a flag that's silently ignored.
 """
+from pathlib import Path
+
 import tiktoken
 import torch
 import torch.nn.functional as F
+from peft import LoraConfig, inject_adapter_in_model, set_peft_model_state_dict
+from safetensors.torch import load_file
 
 from model_kv import GPT
 from .base import Engine, GenerationParams
@@ -27,17 +31,50 @@ EOT_TOKEN = 50256
 # so prompt + generated tokens can never exceed it.
 BLOCK_SIZE = 1024
 
+# gpt_kv.py -> engine/ -> app/ -> backend/ -> repo root, where training's
+# finetune_lora.py writes adapters/<name>/
+ADAPTERS_ROOT = Path(__file__).resolve().parent.parent.parent.parent / "adapters"
+
 
 class GPTKVEngine(Engine):
     supports_cache_toggle = True
-    """Loads the model as soon as the GPTKVEngine is called we are using huggingface spaces so we
-        we are using cpu """
-    def __init__(self, model_type: str, device: str = "cpu"):
+
+    def __init__(self, model_type: str, device: str = "cpu", adapter_name: str | None = None):
         self.enc = tiktoken.get_encoding("gpt2")
         self.model = GPT.from_pretrained(model_type)
         self.model.eval()
         self.model.to(device)
         self.device = device
+
+        if adapter_name is not None:
+            self._load_adapter(adapter_name)
+
+    def _load_adapter(self, adapter_name: str) -> None:
+        """Inject a trained LoRA adapter and load its weights.
+
+        Base weights must already be loaded and moved to device -- injection
+        replaces each targeted nn.Linear with a wrapper holding the original
+        at .base_layer, and peft creates the new lora_A/lora_B parameters
+        matching whatever device/dtype the base layer already has.
+        """
+        directory = ADAPTERS_ROOT / adapter_name
+        config = LoraConfig.from_pretrained(str(directory))
+        inject_adapter_in_model(config, self.model)
+
+        # peft leaves freshly-injected wrappers in train mode regardless of
+        # the model's mode beforehand, so lora_dropout stays live unless this
+        # runs again after injection -- the same bug training/full/lora.py's
+        # inject_lora works around. Missed here, generation is silently
+        # non-deterministic.
+        self.model.eval()
+
+        state = load_file(str(directory / "adapter_model.safetensors"), device=str(self.device))
+        result = set_peft_model_state_dict(self.model, state)
+        if result.unexpected_keys:
+            raise ValueError(
+                f"adapter {adapter_name!r} does not match the injected wrappers -- "
+                f"unexpected keys: {result.unexpected_keys[:4]}"
+            )
 
     """takes the history (passed in via GenerationParams, loaded from Postgres
         by the route handler) which looks like [{"role":, "content":}, ...],

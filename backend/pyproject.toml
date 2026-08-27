@@ -10,6 +10,9 @@ dependencies = [
     "bcrypt<4",
     "fastapi>=0.139.0",
     "passlib[bcrypt]>=1.7.4",
+    # loads LoRA adapters at request-serving time (GPTKVEngine), not just
+    # training -- must be a base dep so it ships in the deploy image
+    "peft>=0.20.0",
     "pyjwt>=2.13.0",
     "sqlalchemy>=2.0.51",
     "tiktoken>=0.13.0",
@@ -29,6 +32,10 @@ dependencies = [
 [project.optional-dependencies]
 cpu = ["torch>=2.13.0"]
 gpu = ["torch>=2.13.0"]
+train = [
+    "datasets>=5.0.1",
+    "tqdm>=4.70.0",
+]
 
 [tool.uv]
 conflicts = [

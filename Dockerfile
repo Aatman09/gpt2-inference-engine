@@ -43,6 +43,9 @@ RUN cd backend && \
 
 # model_kv.py lives at the repo root and is imported by the engine
 COPY model_kv.py ./
+# LoRA adapters -- a few MB each, unlike the training checkpoints excluded by
+# .dockerignore -- loaded by GPTKVEngine at serve time, not just training
+COPY adapters/ ./adapters/
 COPY backend/ ./backend/
 
 # the built SPA, served by FastAPI at runtime (see FRONTEND_DIST in app.py)
